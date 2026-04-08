@@ -1,0 +1,362 @@
+"""
+XPS Depth Profile - Stacked Spectra (Waterfall) Plot
+Creates a 3D-like visualization where each spectrum is offset in both Y and Z directions
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.cm as cm
+
+
+def plot_stacked_spectra_3d(
+    df: pd.DataFrame,
+    energy_col: str = 'Binding Energy',
+    y_offset: float = 0.3,
+    z_spacing: float = 1.0,
+    cmap_name: str = 'viridis',
+    title: str = 'XPS Depth Profile - Stacked Spectra',
+    xlabel: str = 'Binding Energy (eV)',
+    ylabel: str = 'Sputter Cycle',
+    zlabel: str = 'Intensity (a.u.)',
+    reverse_x: bool = True,
+    elev: float = 25,
+    azim: float = -60,
+    figsize: tuple = (14, 10)
+):
+    """
+    Creates a 3D waterfall plot of XPS depth profile spectra.
+
+
+
+Args:
+    df (pd.DataFrame): DataFrame where first column is binding energy,
+                      subsequent columns are intensity for each cycle
+    energy_col (str): Name of the binding energy column
+    y_offset (float): Vertical offset between consecutive spectra
+    z_spacing (float): Spacing between spectra in the depth direction
+    cmap_name (str): Matplotlib colormap name
+    title (str): Plot title
+    xlabel (str): X-axis label
+    ylabel (str): Y-axis label (depth/cycle)
+    zlabel (str): Z-axis label (intensity)
+    reverse_x (bool): If True, reverse binding energy axis (standard for XPS)
+    elev (float): Elevation angle for 3D view
+    azim (float): Azimuth angle for 3D view
+    figsize (tuple): Figure size (width, height)
+
+Returns:
+    tuple: (fig, ax) matplotlib Figure and Axes3D objects
+"""
+
+
+--- 1. Data Preparation ---
+
+if energy_col not in df.columns:
+    raise ValueError(f"Energy column '{energy_col}' not found in DataFrame.")
+
+
+intensity_cols = df.columns.drop(energy_col)
+num_spectra = len(intensity_cols)
+energy = df[energy_col].values
+
+
+--- 2. Create 3D Plot ---
+
+fig = plt.figure(figsize=figsize)
+ax = fig.add_subplot(111, projection='3d')
+
+
+Get colormap
+
+cmap = cm.get_cmap(cmap_name)
+colors = cmap(np.linspace(0, 1, num_spectra))
+
+
+--- 3. Plot Each Spectrum ---
+
+for i, col_name in enumerate(intensity_cols):
+    intensity = df[col_name].values
+
+
+# Normalize intensity for better visualization
+intensity_normalized = intensity / np.max(intensity) if np.max(intensity) &gt; 0 else intensity
+
+# Create depth coordinate (constant for each spectrum)
+depth = np.full_like(energy, i * z_spacing)
+
+# Add vertical offset to create stacking effect
+intensity_offset = intensity_normalized + (i * y_offset)
+
+# Plot the spectrum
+ax.plot(energy, depth, intensity_offset, 
+       color=colors[i], linewidth=1.8, alpha=0.9)
+
+# Optional: Fill under the curve for better visibility
+ax.plot(energy, depth, np.full_like(energy, i * y_offset),
+       color=colors[i], linewidth=0.5, alpha=0.3, linestyle='--')
+
+--- 4. Customize Axes ---
+
+ax.set_xlabel(xlabel, fontsize=12, labelpad=10)
+ax.set_ylabel(ylabel, fontsize=12, labelpad=10)
+ax.set_zlabel(zlabel, fontsize=12, labelpad=10)
+ax.set_title(title, fontsize=16, fontweight='bold', pad=20)
+
+
+Set viewing angle
+
+ax.view_init(elev=elev, azim=azim)
+
+
+Reverse X-axis if needed (standard for XPS)
+
+if reverse_x:
+    ax.set_xlim(energy.max(), energy.min())
+else:
+    ax.set_xlim(energy.min(), energy.max())
+
+
+Set Y-axis (depth/cycle)
+
+ax.set_ylim(0, (num_spectra - 1) * z_spacing)
+
+
+Customize Y-axis ticks to show cycle numbers
+
+y_ticks = np.arange(0, num_spectra, max(1, num_spectra // 10)) * z_spacing
+y_labels = [f'{int(i/z_spacing + 1)}' for i in y_ticks]
+ax.set_yticks(y_ticks)
+ax.set_yticklabels(y_labels)
+
+
+Grid
+
+ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+
+
+Background color
+
+ax.xaxis.pane.fill = False
+ax.yaxis.pane.fill = False
+ax.zaxis.pane.fill = False
+
+
+plt.tight_layout()
+
+
+return fig, ax
+
+
+def plot_stacked_spectra_2d(
+    df: pd.DataFrame,
+    energy_col: str = 'Binding Energy',
+    offset_factor: float = 0.5,
+    cmap_name: str = 'plasma',
+    title: str = 'XPS Depth Profile - Stacked Spectra (2D)',
+    xlabel: str = 'Binding Energy (eV)',
+    ylabel: str = 'Intensity (a.u.) + Offset',
+    reverse_x: bool = True,
+    fill_alpha: float = 0.3,
+    figsize: tuple = (12, 10)
+):
+    """
+    Creates a 2D stacked/waterfall plot (pseudo-3D effect in 2D).
+
+
+
+This is often clearer than true 3D for publications.
+
+Args:
+    df (pd.DataFrame): DataFrame with energy and intensity columns
+    energy_col (str): Name of binding energy column
+    offset_factor (float): Multiplier for vertical offset between spectra
+    cmap_name (str): Matplotlib colormap name
+    title (str): Plot title
+    xlabel (str): X-axis label
+    ylabel (str): Y-axis label
+    reverse_x (bool): Reverse binding energy axis
+    fill_alpha (float): Transparency for filled areas under curves
+    figsize (tuple): Figure size
+
+
+Returns:
+    tuple: (fig, ax) matplotlib Figure and Axes objects
+"""
+
+
+--- 1. Data Preparation ---
+
+if energy_col not in df.columns:
+    raise ValueError(f"Energy column '{energy_col}' not found in DataFrame.")
+
+
+intensity_cols = df.columns.drop(energy_col)
+num_spectra = len(intensity_cols)
+energy = df[energy_col].values
+
+
+--- 2. Create 2D Plot ---
+
+fig, ax = plt.subplots(figsize=figsize)
+
+
+Get colormap
+
+cmap = cm.get_cmap(cmap_name)
+colors = cmap(np.linspace(0, 1, num_spectra))
+
+
+Calculate offset
+
+max_intensity = df[intensity_cols].max().max()
+offset = max_intensity * offset_factor
+
+
+--- 3. Plot Each Spectrum ---
+
+for i, col_name in enumerate(intensity_cols):
+    intensity = df[col_name].values
+    intensity_offset = intensity + (i * offset)
+
+
+# Plot line
+ax.plot(energy, intensity_offset, color=colors[i], 
+       linewidth=1.5, alpha=0.9, label=f'Cycle {i+1}')
+
+# Fill under curve
+ax.fill_between(energy, i * offset, intensity_offset,
+                color=colors[i], alpha=fill_alpha)
+
+--- 4. Customize Plot ---
+
+ax.set_xlabel(xlabel, fontsize=12)
+ax.set_ylabel(ylabel, fontsize=12)
+ax.set_title(title, fontsize=16, fontweight='bold')
+
+
+if reverse_x:
+    ax.invert_xaxis()
+
+
+ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+ax.set_ylim(bottom=0)
+
+
+Add colorbar
+
+norm = plt.Normalize(vmin=1, vmax=num_spectra)
+sm = cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+
+
+cbar = fig.colorbar(sm, ax=ax, pad=0.02)
+cbar.set_label('Sputter Cycle', rotation=270, labelpad=20, fontsize=11)
+
+
+plt.tight_layout()
+
+
+return fig, ax
+
+
+--- Example Usage ---
+
+if name == "main":
+    # 1. Generate Synthetic XPS Depth Profile Data
+    def gaussian(x, mu, sigma, amplitude):
+        """Generates a Gaussian peak."""
+        return amplitude * np.exp(-((x - mu)2) / (2 * sigma2))
+
+
+
+num_cycles = 15
+be = np.linspace(105, 95, 401)  # Binding energy range for Si 2p
+
+data = {'Binding Energy': be}
+
+
+for i in range(num_cycles):
+    cycle_num = i + 1
+
+
+# Oxide peak (SiO2) at ~103.3 eV, decreases with depth
+oxide_amp = 1.2 * (1 - i / num_cycles)
+oxide_peak = gaussian(be, 103.3, 0.7, oxide_amp)
+
+# Elemental peak (Si) at ~99.3 eV, increases with depth
+metal_amp = 1.0 * (i / (num_cycles - 1))
+metal_peak = gaussian(be, 99.3, 0.5, metal_amp)
+
+# Intermediate state (suboxide) at ~101 eV
+suboxide_amp = 0.4 * np.exp(-((i - num_cycles/2)**2) / 10)
+suboxide_peak = gaussian(be, 101.5, 0.6, suboxide_amp)
+
+# Add baseline and noise
+noise = np.random.normal(0, 0.015, len(be))
+baseline = 0.05
+
+data[f'Cycle {cycle_num}'] = oxide_peak + metal_peak + suboxide_peak + noise + baseline
+
+Create DataFrame
+
+sample_df = pd.DataFrame(data)
+
+
+2. Create 3D Stacked Plot
+
+print("Generating 3D stacked spectra plot...")
+fig_3d, ax_3d = plot_stacked_spectra_3d(
+    sample_df,
+    title='Si 2p Depth Profile - 3D Waterfall View',
+    cmap_name='viridis',
+    y_offset=0.4,
+    z_spacing=1.0,
+    elev=20,
+    azim=-65
+)
+
+
+Save 3D plot
+
+fig_3d.savefig("stacked_spectra_3d.png", dpi=300, bbox_inches='tight')
+print("3D plot saved as 'stacked_spectra_3d.png'")
+
+
+3. Create 2D Stacked Plot (often clearer for publications)
+
+print("Generating 2D stacked spectra plot...")
+fig_2d, ax_2d = plot_stacked_spectra_2d(
+    sample_df,
+    title='Si 2p Depth Profile - Stacked Spectra',
+    cmap_name='plasma',
+    offset_factor=0.6,
+    fill_alpha=0.25
+)
+
+
+Add annotations
+
+ax_2d.annotate('Surface\n(SiO₂)', xy=(103.3, 0.3), xytext=(104.5, 1.5),
+              arrowprops=dict(arrowstyle='->', color='black', lw=1.5),
+              fontsize=11, ha='center', bbox=dict(boxstyle='round,pad=0.5',
+              facecolor='white', edgecolor='black', alpha=0.8))
+
+
+ax_2d.annotate('Bulk\n(Si⁰)', xy=(99.3, 7), xytext=(97.5, 8.5),
+              arrowprops=dict(arrowstyle='->', color='black', lw=1.5),
+              fontsize=11, ha='center', bbox=dict(boxstyle='round,pad=0.5',
+              facecolor='white', edgecolor='black', alpha=0.8))
+
+
+Save 2D plot
+
+fig_2d.savefig("stacked_spectra_2d.png", dpi=300, bbox_inches='tight')
+print("2D plot saved as 'stacked_spectra_2d.png'")
+
+
+Display plots
+
+plt.show()
+

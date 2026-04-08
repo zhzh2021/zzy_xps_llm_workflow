@@ -1,0 +1,17 @@
+================================================================================
+WHOLE-SPECTRUM PCA ANALYSIS RESULTS
+================================================================================
+Number of spectra: 9
+Energy grid: 400 points (6912.0 - -911694677.2 eV)
+Normalization: standard (zero mean, unit variance)
+
+Principal Components: 2
+Total variance captured: 100.0%
+
+Variance explained by each component:
+  PC1: 96.5% (cumulative: 96.5%)
+  PC2: 3.5% (cumulative: 100.0%)
+
+Flags:
+  - Auto-selected 2 components (>95% variance)
+================================================================================

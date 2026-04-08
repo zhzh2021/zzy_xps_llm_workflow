@@ -1,0 +1,104 @@
+{
+  "name": "wf_full_xps_analysis",
+  "description": "Full XPS pipeline from raw files to correlation insight.",
+  "input": {
+    "project_root": "string",
+    "file_paths": ["string"]
+  },
+  "steps": [
+    {
+      "step": "grouping",
+      "tool": "smart_grouping",
+      "args": {
+        "file_paths": "{{input.file_paths}}"
+      },
+      "output": "grouping_result"
+    },
+
+    {
+      "step": "read",
+      "tool": "xps_reader",
+      "args": {
+        "config": {
+          "project_root": "{{input.project_root}}"
+        },
+        "groups": "{{grouping_result.groups}}"
+      },
+      "output": "raw_xps_data"
+    },
+
+    {
+      "step": "fitting",
+      "tool": "xps_fitter",
+      "args": {
+        "config": {
+          "project_root": "{{input.project_root}}"
+        },
+        "xps_data": "{{raw_xps_data}}",
+        "fit_model": "GL(30)-constrained",
+        "background": "Shirley",
+        "peak_rules": "element-dependent-ruleset"
+      },
+      "output": "fit_results"
+    },
+
+    {
+      "step": "quantification",
+      "tool": "xps_quantifier",
+      "args": {
+        "config": {
+          "project_root": "{{input.project_root}}"
+        },
+        "fit_results": "{{fit_results}}",
+        "sensitivity_factors": "Scofield",
+        "normalization": "atomic_percent"
+      },
+      "output": "quant_results"
+    },
+
+    {
+      "step": "plotting",
+      "tool": "xps_plotter",
+      "args": {
+        "config": {
+          "project_root": "{{input.project_root}}"
+        },
+        "fit_results": "{{fit_results}}",
+        "raw_xps_data": "{{raw_xps_data}}",
+        "plot_style": "publication"
+      },
+      "output": "plot_report"
+    },
+
+    {
+      "step": "correlation",
+      "tool": "xps_correlator",
+      "args": {
+        "config": {
+          "project_root": "{{input.project_root}}"
+        },
+        "quant_data": "{{quant_results}}",
+        "meta_data": {
+          "sample_conditions": "{{grouping_result.conditions}}"
+        }
+      },
+      "output": "correlation_summary"
+    },
+
+    {
+      "step": "summary_report",
+      "tool": "report_builder",
+      "args": {
+        "config": {
+          "project_root": "{{input.project_root}}"
+        },
+        "raw_data": "{{raw_xps_data}}",
+        "fit_results": "{{fit_results}}",
+        "quant_results": "{{quant_results}}",
+        "correlation_summary": "{{correlation_summary}}",
+        "plots": "{{plot_report}}"
+      },
+      "output": "full_report"
+    }
+  ]
+}

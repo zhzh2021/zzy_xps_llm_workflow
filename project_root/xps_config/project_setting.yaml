@@ -1,0 +1,179 @@
+# XPS Data Processing Configuration
+# This YAML file configures all aspects of XPS data processing
+
+# Project structure and directories
+project_info:
+  name: "XPS Analysis Project"
+  description: "XPS data processing and analysis configuration"
+  version: "1.0"
+  # Custom project root (optional) - if not specified, uses auto-detected path
+  project_root: "C:\\Users\\b82797\\Documents\\GitHub\\zz_llm\\zzy_llm\\project_root\\"
+
+# File format settings
+file_formats:
+  supported_extensions:
+    - ".spe"    # PHI MultiPak SPE files
+    - ".vgd"    # Thermo Fisher VGD files
+    - ".npl"    # Kratos NPL files
+    - ".xy"     # XY ASCII files
+    - ".txt"    # Text files
+    - ".asc"    # ASCII files
+    - ".dat"    # Data files
+    - ".csv"    # CSV files
+    - ".vms"    # VAMAS files
+    - ".vamas"  # VAMAS files
+    - ".pro"    # Pro text files
+
+# Processing settings
+processing:
+  # Region extraction settings
+  auto_detect_regions: true
+  extract_all_regions: true
+  specific_regions: null  # List of specific regions, e.g., ["C1s", "O1s", "Si2p"]
+  
+  # Background correction settings
+  background_type: shirley  # Options: shirley, linear, polynomial, tougaard
+  tougaard_B: 2866  # Tougaard B parameter (eV²) - only used if background_type is tougaard
+  tougaard_C: 1643  # Tougaard C parameter (eV²) - only used if background_type is tougaard
+  
+  # Energy and intensity thresholds
+  min_region_intensity: 10.0
+  energy_padding: 2.0  # eV padding around regions
+  
+  # Grid settings for aligned output
+  common_grid_step: 0.1  # eV step for interpolated grid
+  
+  # Quality control settings
+  generate_quality_plots: true  # Automatically generate data quality plots after extraction
+  quality_thresholds:
+    min_snr_excellent: 20.0
+    min_snr_good: 10.0
+    min_snr_acceptable: 3.0
+    min_snr_poor: 1.0
+    min_points: 20
+    max_relative_noise: 0.3
+    min_energy_range: 5.0
+  
+  # Scan classification thresholds
+  scan_classification:
+    survey_energy_threshold: 100.0  # eV - above this = survey scan
+    narrow_energy_threshold: 50.0   # eV - below this = narrow scan
+    narrow_resolution_threshold: 4.0  # points/eV - minimum for narrow
+    hr_resolution_threshold: 4.0     # points/eV - minimum for HR
+
+# Energy calibration settings
+energy_calibration:
+  enable: true
+  reference_region: "C1s"
+  target_binding_energy_ev: 284.8
+  max_allowed_shift_ev: 5.0
+  
+  # Peak detection parameters
+  smooth_window_points: 7
+  smooth_poly_order: 2
+  min_prominence_fraction: 0.10
+  min_points_required: 20
+
+# Output settings
+output:
+  aggregate_per_region: true  # Create one CSV per region across all files
+  include_metadata: true
+  decimal_places: 4
+# atomic concentration calculation settings
+parsing:
+  enable_txt_import: true
+
+
+# Region definitions for XPS analysis
+regions:
+  C1s:
+    energy_range: [280.0, 295.0]
+    description: "Carbon 1s"
+    typical_be: 284.8
+    analysis_range: [282.0, 292.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: 5.0   # masking for C1s
+    
+  O1s:
+    energy_range: [525.0, 540.0]
+    description: "Oxygen 1s"
+    typical_be: 532.0
+    analysis_range: [528.0, 538.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for O1s
+    
+  Si2p:
+    energy_range: [96.0, 108.0]
+    description: "Silicon 2p"
+    typical_be: 99.3
+    analysis_range: [98.0, 106.0]   # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for Si2p    
+  N1s:
+    energy_range: [395.0, 410.0]
+    description: "Nitrogen 1s"
+    typical_be: 399.8
+    analysis_range: [397.0, 407.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for N1s
+    
+  F1s:
+    energy_range: [680.0, 695.0]
+    description: "Fluorine 1s"
+    typical_be: 688.0
+    analysis_range: [683.0, 690.0]  # Focused range for MCR/clustering
+    focus_clusters: [2]          # Focus analysis on cluster 2 after clustering analysis
+    intensity_mask_threshold: 10.0    # Mask low intensity artifacts
+    
+  Li1s:
+    energy_range: [50.0, 60.0]
+    description: "Lithium 1s"
+    typical_be: 54.7
+    analysis_range: [52.0, 60.0]    # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for Li1s
+    
+  P2p:
+    energy_range: [128.0, 140.0]
+    description: "Phosphorus 2p"
+    typical_be: 133.0
+    analysis_range: [130.0, 138.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for P2p
+    
+  S2p:
+    energy_range: [155.0, 175.0]
+    description: "Sulfur 2p"
+    typical_be: 164.0
+    analysis_range: [160.0, 170.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for S2p    
+  Cl2p:
+    energy_range: [195.0, 210.0]
+    description: "Chlorine 2p"
+    typical_be: 200.0
+    analysis_range: [197.0, 207.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for Cl2p
+    
+  Al2p:
+    energy_range: [70.0, 80.0]
+    description: "Aluminum 2p"
+    typical_be: 74.0
+    analysis_range: [72.0, 78.0]    # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for Al2p
+    
+  Ag3d:
+    energy_range: [365.0, 380.0]
+    description: "Silver 3d"
+    typical_be: 368.2
+    analysis_range: [367.0, 377.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for Ag3d
+  Ir4f:
+    energy_range: [58.0, 70.0]  
+    description: "Iridium 4f"
+    typical_be: 61.2
+    analysis_range: [59.0, 74.0]    # Focused range
+    intensity_mask_threshold: null   # No masking for Ir4f
+  Ti2p:
+    energy_range: [450.0, 470.0]
+    description: "Titanium 2p"
+    typical_be: 458.5
+    analysis_range: [455.0, 468.0]  # Focused range for MCR/clustering
+    intensity_mask_threshold: null   # No masking for Ti2p 
+mapper:
+  # Global fallback values (element-specific values in region definitions take precedence)
+  # analysis_energy_range: [280, 292]  # Uncomment for global override
+  # intensity_mask_threshold: 5.0      # Uncomment for global override

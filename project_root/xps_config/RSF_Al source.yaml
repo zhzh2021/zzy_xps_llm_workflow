@@ -1,0 +1,66 @@
+# 
+# Usage notes:
+# - RSF values are used for atomic concentration calculations
+# - Corrected RSF accounts for transmission function and other instrument factors
+# - Formula: Atomic% = (Area/RSF) / Σ(Area_i/RSF_i) × 100
+# RSF values are different for different X-ray sources
+
+
+metadata:
+  x_ray_source: "Al Kα"
+  photon_energy_eV: 1486.6
+  description: "RSF and corrected RSF values for common elements in XPS analysis"
+  reference: "Manufacturer calibration from Physical Electronics (PHI)"
+  date_created: "2024"
+
+rsf_values:
+  Li1s:
+    rsf: 0.028
+    corrected_rsf: 1.258
+    binding_energy_eV: ~55
+    
+  C1s:
+    rsf: 0.314
+    corrected_rsf: 6.631
+    binding_energy_eV: ~285
+    
+  N1s:
+    rsf: 0.499
+    corrected_rsf: 22.814
+    binding_energy_eV: ~400
+    
+  O1s:
+    rsf: 0.733
+    corrected_rsf: 16.007
+    binding_energy_eV: ~532
+    
+  F1s:
+    rsf: 1.000
+    corrected_rsf: 22.267
+    binding_energy_eV: ~685
+    
+  Si2p:
+    rsf: 0.368
+    corrected_rsf: 19.281
+    binding_energy_eV: ~99
+    
+  P2p:
+    rsf: 0.525
+    corrected_rsf: 12.497
+    binding_energy_eV: ~130
+    
+  S2p:
+    rsf: 0.717
+    corrected_rsf: 36.956
+    binding_energy_eV: ~164
+    
+  Ni2p:
+    rsf: 3.702
+    corrected_rsf: 187.894
+    binding_energy_eV: ~853
+  Ir4f:
+    rsf: 5.484
+    corrected_rsf: 285.853
+    binding_energy_eV: ~61
+
+

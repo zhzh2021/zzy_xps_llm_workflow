@@ -1,0 +1,53 @@
+# config.yaml
+project:
+  name: "Integrated XPS Workflow"
+
+paths:
+  # Step 1: raw atomic concentration TXT files
+  step1_raw_dir: 'N:\zhenzhen\Python\ZZY_XPS\raw_data\Atomic concentration'
+  step1_pattern: '*.txt'
+  step1_output_dir: 'AC_quantification'   # relative to working directory or absolute if preferred
+  plots_dir: 'plots'                      # where plots go
+
+  # Step 2: upstream converted CSV base dir. Under this base you have per-region folders like C1s, O1s, F1s, etc.
+  step2_converted_base_dir: 'N:\zhenzhen\Python\ZZY_XPS\converted_csv'
+  step2_fit_folder_name: 'fits_multilayer'   # the folder inside each region that contains JSON params
+  step2_param_file_pattern: '*.json'         # pattern for fit parameter files
+
+# Parsing options for Step 1
+parsing:
+  include_std_rows: false
+  skip_rsf_rows: true
+
+# Elements and region mapping
+# - selected: elements to show in AC plots
+# - region_map: maps element symbol to expected region directory name(s).
+#   You can provide either a string or a list if a symbol maps to multiple candidate region names.
+elements:
+  selected: ['Li', 'C', 'O', 'F', 'N', 'S', 'Si']
+  region_map:
+    Li: 'Li1s'
+    C: 'C1s'
+    O: 'O1s'
+    F: 'F1s'
+    N: 'N1s'
+    S: 'S2p'
+    Si: 'Si2p'
+
+# Plot settings
+plot:
+  figsize: [14, 6]
+  dpi: 300
+  style: null  # e.g., 'seaborn-v0_8-whitegrid' or null to use default
+
+# Optional: if upstream outputs use specific param filenames, override here.
+# For example, some workflows produce 'fit_params.json' or 'best_fit.json'.
+conventions:
+  # If not null, restrict param_file_pattern to these exact names per region
+  allowed_param_filenames: []  # e.g., ['fit_params.json', 'best_fit.json']
+
+# Advanced search behavior
+search:
+  recursive: true                 # allow scanning nested samples under each region
+  prefer_latest_by_mtime: true    # if multiple JSONs found per sample/region, pick the newest
+  max_depth: 6                    # safeguard to avoid deep accidental traversals; null to disable

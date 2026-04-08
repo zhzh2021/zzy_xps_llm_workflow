@@ -1,0 +1,116 @@
+# XPS Region Definitions Configuration
+# Define binding energy ranges and priorities for each XPS region
+# processing settings and file format preferences
+
+regions:
+  F1s:
+    energy_range: [682, 692]
+    priority: 1
+    description: "Fluorine 1s"
+    typical_compounds: ["LiF", "PVDF", "fluorinated compounds"]
+    
+  O1s:
+    energy_range: [526, 538]
+    priority: 2
+    description: "Oxygen 1s"
+    typical_compounds: ["Li2O", "Li2CO3", "hydroxides", "carbonates"]
+    
+  C1s:
+    energy_range: [277, 294]
+    priority: 3
+    description: "Carbon 1s"
+    typical_compounds: ["graphite", "carbonates", "C-C", "C-O", "C=O"]
+    
+  Li1s:
+    energy_range: [52, 60]
+    priority: 4
+    description: "Lithium 1s"
+    typical_compounds: ["Li metal", "Li2O", "LiF", "Li2CO3"]
+    
+  P2p:
+    energy_range: [130, 140]
+    priority: 5
+    description: "Phosphorus 2p"
+    typical_compounds: ["LiPF6", "phosphates", "Li3PO4"]
+    
+  S2p:
+    energy_range: [155, 175]
+    priority: 6
+    description: "Sulfur 2p"
+    typical_compounds: ["sulfides", "sulfates", "polysulfides"]
+    
+  N1s:
+    energy_range: [395, 405]
+    priority: 7
+    description: "Nitrogen 1s"
+    typical_compounds: ["nitrides", "N-doped carbon"]
+
+  Ag3d:
+    energy_range: [355, 380]
+    priority: 8
+    description: "Silver 3d"
+    typical_compounds: ["Ag metal", "Ag compounds"]
+  Ir4f:
+    energy_range: [58, 74]
+    priority: 9
+    description: "Iridium 4f"
+    typical_compounds: ["Ir metal", "Ir oxides", "Ir hydroxides"]
+  Ti2p:
+    energy_range: [450, 470]
+    priority: 10
+    description: "Titanium 2p"
+    typical_compounds: ["Ti metal", "TiO2", "Ti oxides"]
+# Default region definitions (used as fallback if 'regions' is missing entries)
+default_region_definitions:
+  F1s: { energy_range: [682, 692], priority: 1 }
+  O1s: { energy_range: [526, 538], priority: 2 } 
+  C1s: { energy_range: [277, 298], priority: 3 }
+  Li1s: { energy_range: [52, 60], priority: 4 }
+  P2p: { energy_range: [130, 140], priority: 5 }
+  S2p: { energy_range: [155, 175], priority: 6 }
+  N1s: { energy_range: [395, 405], priority: 7 }
+  Ag3d: { energy_range: [355, 380], priority: 8 }
+
+# Processing settings
+processing:
+  min_region_intensity: 10     # updated from 50 per request
+  energy_padding: 2.0          # eV padding around region
+  auto_detect_regions: true
+  extract_all_regions: true
+  specific_regions: ["F1s", "O1s", "C1s"]
+  common_grid_step: 0.25       # eV step for the common energy grid (adjust as needed)
+  # Scan classification thresholds 
+  scan_classification:
+    survey_energy_threshold: 800      # eV - scans wider than this are survey
+    narrow_energy_threshold: 50       # eV - scans narrower than this are narrow
+    narrow_resolution_threshold: 2    # pts/eV - minimum for narrow scan
+    hr_resolution_threshold: 2        # pts/eV - minimum for HR data
+    map_resolution_threshold: 8      # pts/eV - minimum for mapping data
+# Energy axis calibration
+energy_calibration:
+  enable: true
+  reference_region: "C1s"
+  target_binding_energy_ev: 284.8
+  max_allowed_shift_ev: 5.0
+  min_prominence_fraction: 0.10
+  min_points_required: 20
+
+# File format settings
+file_formats:
+  supported_extensions: [".spe", ".xy", ".txt", ".asc", ".dat", ".csv"]
+  default_encoding: "utf-8"
+  preferred: 'csv'  # Prioritize CSV format
+  strict_mode: false
+# Output settings
+output:
+  csv_format: "standard"   # or "multi_column"
+  include_metadata: true
+  decimal_places: 4
+  aggregate_per_region: true  # save one CSV per region across multiple files
+
+# curve smoothing settings for peak fitting, adjust as needed, but not recommended since smoothing may distort peaks or lose information
+smoothing:
+  enable: false
+  method: "savitzky_golay"
+  window_length: 5
+  polyorder: 2

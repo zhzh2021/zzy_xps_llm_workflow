@@ -1,0 +1,162 @@
+# XPS Plotting Configuration
+# This file contains all plot styling and layout settings that users can modify
+# without touching the code. All measurements are in matplotlib units.
+
+# Publication Quality Settings
+publication:
+  # High-resolution settings for publication figures
+  dpi: 600                        # High DPI for crisp publication figures
+  
+  # Publication font sizes (larger for readability)
+  fonts:
+    title_size: 20                # Main plot titles
+    subtitle_size: 18             # Subplot titles  
+    axis_label_size: 18           # X and Y axis labels
+    tick_label_size: 16           # Tick mark labels
+    legend_size: 18               # Legend text
+    annotation_size: 16           # Text annotations
+    
+  # Line widths for publication quality
+  lines:
+    data_line_width: 3.0          # Experimental data line thickness
+    fit_line_width: 3.5           # Fit line thickness
+    grid_line_width: 1.2          # Grid line thickness
+    axis_line_width: 1.8          # Axis line thickness
+    
+  # Marker settings
+  markers:
+    size: 10                      # Data point marker size
+    edge_width: 1.8               # Marker edge thickness
+    
+  # Figure size for publications (inches)
+  figure_sizes:
+    single_column: [3.5, 2.5]     # Single column figure (ACS standard)
+    double_column: [7.0, 5.0]     # Double column figure
+    quality_overview: [10, 8]      # Data quality overview
+    large_overview: [12, 10]      # Large overview plot
+
+plot_settings:
+  # Figure size settings (width, height in inches)
+  figure_sizes:
+    single_plot: [10, 8]          # Individual peak fits
+    overview_plot: [12, 8]        # Workflow overview  
+    summary_plot: [10, 8]        # Data quality summary
+    single_stacked: [10, 8]         # Single layer stacked plot - narrower for better proportions
+    multi_stacked_base: [4, 3]     # Base size for multi-layer (height multiplied by number of layers) - narrower and shorter per layer
+    correlation_plot: [10, 8]     # Correlation analysis plots
+    
+  # DPI (resolution) settings
+  dpi: 300                        # Default DPI for saved plots
+  
+  # Font settings
+  fonts:
+    title_size: 16                # Main plot titles
+    subtitle_size: 16             # Subplot titles  
+    axis_label_size: 16           # X and Y axis labels
+    axis_label_size_large: 16     # Large axis labels for stacked plots
+    tick_label_size: 16           # Tick mark labels
+    legend_size: 16               # Legend text
+    annotation_size: 16           # Text annotations on plots
+    residual_label_size: 12       # Residual plot labels
+    info_text_size: 12            # Information text boxes
+    tick_label_size_large: 15     # Large tick labels for plots
+    
+  # Legend settings
+  legend:
+    position: "upper left"        # Legend position (matplotlib location strings)
+    bbox_anchor: [1.05, 1.0]     # Legend anchor point [x, y] for outside plot
+    bbox_anchor: [0.8, 1.0]      # Legend anchor point [x, y] for inside plot
+    stacked_position: "upper left" # Position for stacked plots
+    stacked_bbox_anchor: [1.01, 1.0] # Anchor for stacked plot legends
+    alpha: 1.0                    # Legend transparency (0-1)
+    frameon: true                 # Show legend frame
+    
+  # Line and curve settings
+  lines:
+    data_line_width: 3.0          # Data line thickness
+    fit_line_width: 2.5           # Total fit line thickness
+    fit_alpha: 0.8                # Total fit line transparency
+    component_alpha: 0.6          # Individual component transparency
+    grid_alpha: 0.3               # Grid line transparency
+    
+  # Marker settings
+  markers:
+    size: 10                       # Data point marker size
+    edge_width: 1.5               # Marker edge thickness
+    
+  # Subplot spacing and margins
+  layout:
+    subplot_adjust:
+      top: 0.95                   # Top margin
+      bottom: 0.05                # Bottom margin  
+      left: 0.10                  # Left margin
+      right: 0.95                 # Right margin
+      hspace: 0.0                 # Height spacing between subplots
+      wspace: 0.3                 # Width spacing between subplots
+    
+    title_pad: 18                 # Padding below title
+    
+  # Height ratios for multi-panel plots
+  height_ratios:
+    main_residual: [3, 1]         # Main plot vs residual plot ratio
+    
+  # Color settings
+  colors:
+    fit_line: "red"               # Total fit line color
+    data_points: "black"          # Experimental data points
+    residuals: "blue"             # Residual plot color
+    grid: "gray"                  # Grid color
+# Define chemistry-specific colormaps, use softer palettes for better visibility
+chemistry_colormaps:
+  carbon_chemistry: 'Set3'        # Pastel colors for carbon
+  C1s: 'Set3'        # Pastel colors for carbon
+  fluorine_chemistry: 'Reds'        # Red palette for fluorine
+  F1s: 'Reds'        # Red palette for fluorine
+  lithium_chemistry: 'Purples'    # Purple palette for lithium
+  Li1s: 'Purples'    # Purple palette for lithium
+  phosphorus_chemistry: 'Blues'       # Blue palette for phosphorus
+  P2p: 'Blues'       # Blue palette for phosphorus
+  oxygen_chemistry: 'Greens'      # Green palette for oxygen
+  O1s: 'Greens'      # Green palette for oxygen
+  default: 'Pastel2' # Fallback
+
+# Workflow-specific plot settings
+workflow_plots:
+  overview:
+    show_grid: true
+    grid_alpha: 0.3
+    
+  data_quality:
+    show_statistics: true
+    stat_box_alpha: 0.8
+    
+  fitting:
+    show_residuals: true
+    residual_threshold: 0.1       # Threshold for highlighting bad fits
+    
+  quantification:
+    show_error_bars: true
+    error_bar_alpha: 0.5
+    
+  correlation:
+    scatter_alpha: 0.7
+    trend_line_width: 3
+
+# Export settings
+export:
+  formats: ["png", "pdf"]         # Available export formats
+  default_format: "png"           # Default format
+  bbox_inches: "tight"            # Tight bounding box
+  transparent: false              # Transparent background
+  facecolor: "white"              # Background color
+
+# Publication mode toggle
+# Set this to true to automatically use publication settings for all plots
+use_publication_quality: false
+
+# Advanced settings (for power users)
+advanced:
+  matplotlib_style: "seaborn-v0_8-whitegrid"  # Matplotlib style sheet
+  color_palette: "Set1"           # Default color palette for components
+  figure_facecolor: "white"       # Figure background color
+  axes_facecolor: "white"         # Axes background color

@@ -1,0 +1,14 @@
+Until ExperimentSpec, build_manifest, and run_experiment are implemented, every LLM decision will fail, so the AI cannot propose tool calls.
+Ollama connectivity itself is ready via langchain_ollama.ChatOllama;but it can only return plain text answers until the router can discover runnable experiments.
+Add zzy_llm/Tools/utils.py that defines an ExperimentSpec dataclass (name, module, doc, args_required, args_optional), plus build_manifest()
+Once the manifest is live, verify end-to-end routing: (a) ensure ollama serve is running with at least one model from ollama list; (b) install deps (poetry install) and launch the chat UI (poetry run python -m zzy_llm.ui.chat_window); (c) ask “list experiments�? to confirm the router echoes your manifest; (d) issue a request like “run the full XPS workflow on
+Updated zzy_llm/Tools/_manifest.json to describe the real tooling that actually exists in the repo (real workflow runner, legacy workflow runner, helper runner, and smart grouping tool). Each entry now points to the zzy_llm.Tools.* modules
+if the individual scientific tools live in their own subfolders; we need to wrap each script in a callable module to keep the manifest consistent. 
+Ensure the dispatcher (run_experiment) knows how to call run(**args) (or main(args)), so the chat UI can invoke each step independently.
+Add thin wrappers—e.g., create zzy_llm/Tools/xps_reader_tool.py that sets up sys.path, imports XPS_reader.main, and exposes a function like def run(project_root=None, **kwargs): .... Repeat for fitter, quantifier, plotter, correlator.
+Confirm the model is available – run ollama list and make sure qwen3-vl:latest downloaded successfully; if not, ollama pull qwen3-vl:latest again and watch for errors.
+Check the chat server – if you’re using a local service (WebUI or CLI), make sure the process is running and bound to the expected port. Restart it after pulling the model.
+Inspect console output – when you send a prompt, look at the terminal/server log for stack traces, auth errors, or timeout messages.
+Try a minimal prompt – test with ollama run qwen3-vl "hello" (or whatever interface you use). If that works, the issue is in the chat app layer; if not, it’s the model/runtime.
+Review recent changes – you’ve edited _manifest.json/system_prompt.md; double-check that no malformed JSON or prompt syntax is breaking the chat app.
+run_grouped_workflow_by_prefix LangChain tool scans 00_raw_data, groups files by leading prefix, runs the workflow per group, and copies each group’s Step‑2 stacked comparison plots into 04_plots/02_peak_fitting/group_comparisons/<group>

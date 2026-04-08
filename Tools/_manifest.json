@@ -1,0 +1,93 @@
+﻿[
+  {
+    "name": "full_analysis",
+    "module": "zzy_llm.Tools.tool_full_analysis",
+    "doc": "Run the unified XPS analysis pipeline with automatic triage and routing. Includes: 1) Triage (detect standard spectra vs map data), 2) Quality gate (validate data integrity), 3) Auto-route to appropriate workflow (standard: reader→fitter→quantifier→plotter OR map: mapper→plotter). Handles mixed datasets automatically.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_real_xps_workflow",
+    "module": "zzy_llm.Tools.tool_real_workflow",
+    "doc": "Production workflow with unified triage/quality system. Auto-detects file types (.spe/.vgd/.csv) and routes to correct workflow. Standard: reader→fitter→quantifier→plotter. Map: mapper→plotter. Mixed datasets: runs both workflows sequentially.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_xps_workflow_runner",
+    "module": "zzy_llm.Tools.tool_workflow_runner",
+    "doc": "High-level helper that inventories project data, ensures dependencies, and runs appropriate steps.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_xps_reader",
+    "module": "zzy_llm.Tools.tool_xps_reader",
+    "doc": "Convert raw instrument files into standardized CSV files.",
+    "args_required": [],
+    "args_optional": ["project_root", "debug"]
+  },
+  {
+    "name": "tool_xps_fitter",
+    "module": "zzy_llm.Tools.tool_xps_fitter",
+    "doc": "Run the XPS peak fitting pipeline on prepared CSV files.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_xps_quantifier",
+    "module": "zzy_llm.Tools.tool_xps_quantifier",
+    "doc": "Quantify elemental composition from fitted peak results.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_xps_plotter",
+    "module": "zzy_llm.Tools.tool_xps_plotter",
+    "doc": "Generate plots and visualizations from raw/fitted data.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_xps_correlator",
+    "module": "zzy_llm.Tools.tool_xps_correlator",
+    "doc": "Run the ML correlator to relate quantified data to metadata.",
+    "args_required": [],
+    "args_optional": ["project_root"]
+  },
+  {
+    "name": "tool_create_groups",
+    "module": "zzy_llm.Tools.tool_create_groups",
+    "doc": "Natural-language grouping helper (smart_define_groups) for organizing sample files before running workflows.",
+    "args_required": ["samples", "instructions"],
+    "args_optional": []
+  },
+  {
+    "name": "tool_workflow_orchestrator",
+    "module": "zzy_llm.Tools.workflow_orchestrator",
+    "doc": "Pre-flight triage and quality validation using LangGraph architecture. Inspects XPS files to determine: 1) Data type (standard spectra, 2D map, hyperspectral map), 2) Quality metrics (SNR, resolution, integrity), 3) Routing decision (standard_workflow vs map_workflow). Returns success/failure with routing recommendation.",
+    "args_required": ["file_path"],
+    "args_optional": ["user_request", "confidence_threshold"]
+  },
+  {
+    "name": "tool_xps_triage",
+    "module": "zzy_llm.llm_manager.enhanced_triage_fixed",
+    "doc": "Lightweight file inspection to detect XPS data types. Supports: .spe/.vgd/.npl (binary formats), .xy/.txt/.asc (text formats), .csv (map data with spatial parameters), .vms/.vamas (VAMAS format). Returns data_type, confidence, and recommended_processor.",
+    "args_required": ["file_path"],
+    "args_optional": []
+  },
+  {
+    "name": "tool_quality_gatekeeper",
+    "module": "zzy_llm.llm_manager.quality_gatekeeper",
+    "doc": "Hierarchical quality validation for XPS data. Level 1: Universal checks (empty data, energy axis, SNR). Level 2: Modality-specific checks (spectrum: resolution/peak quality, map: spatial/dead pixels). Returns QualityReport with pass/fail decision and detailed issues.",
+    "args_required": ["data"],
+    "args_optional": ["modality", "config"]
+  },
+  {
+    "name": "tool_xps_mapper",
+    "module": "zzy_llm.Tools.XPS_mapper.XPS_map",
+    "doc": "Process hyperspectral XPS map data. Workflow: 1) Import map CSV, 2) PCA clustering for phase identification, 3) MCR (Multivariate Curve Resolution) for component extraction, 4) Generate spatial maps and component plots. Use for 2D/3D XPS mapping data.",
+    "args_required": [],
+    "args_optional": ["project_root", "map_file"]
+  }
+]

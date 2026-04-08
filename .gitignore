@@ -1,0 +1,57 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE settings
+.idea/
+*.swp
+*.swo
+vscodesetting.json
+
+# Project-specific logs / runtime state
+*.log
+.coverage
+.pytest_cache/
+htmlcov/
+groups_memory.json
+temp/
+_temp/
+test_output.txt
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# XPS project data (user-specific, not versioned)
+project_root/_logs/
+project_root/_temp/
+project_root/00_raw_data/
+project_root/01_converted_csv/
+project_root/02_fitted_results/
+project_root/03_quantified_data/
+project_root/04_plots/
+project_root/05_map_data/
+project_root/06_correlator_results/
+project_root/xps_config/LIB_fit_template/
+
+# Raw data file types
+*.csv
+*.xlsx
+*.xls
+*.png
+*.pdf

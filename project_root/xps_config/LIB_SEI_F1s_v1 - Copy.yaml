@@ -1,0 +1,88 @@
+template_name: LIB_SEI_F1s_v1
+description: Analysis template for F1s region of cycled LIB electrodes
+# Add visualization settings section
+visualization:
+  SAVE_PLOTS: true
+  #FIGSIZE: [10, 10]
+  DPI: 300
+  colormap:
+    type: "YlOrRd"
+    reverse: true  # decreasing lightness
+    component_colors:
+      LiF:       "#FF4500"  # Orange Red - bright and distinct
+      LixPOyFz:  "#32CD32"  # Lime Green - vibrant green
+      CnFm:      "#4169E1"  # Royal Blue - clear blue  
+      LiTFSI:    "#8A2BE2"  # Blue Violet - distinct purple
+regions:
+  - element: F1s
+    fit_range_ev: [680, 695]
+
+    # choose from: 'shirley', 'linear', 'tougaard'
+    background_type: shirley
+
+    # Region-level FWHM constraint: allow ±5% per-peak around a shared base
+    fwhm_constraint:
+      type: tolerance
+      tol: 0.05
+    components:
+      - name: LiF
+        amplitude:
+          initial_guess: 100
+          min_bound: 0
+          max_bound: 15000
+        binding_energy:
+          initial_guess: 684.5
+          min_bound: 683.0
+          max_bound: 685.8
+        fwhm:
+          initial_guess: 1.8
+          min_bound: 1.5
+          max_bound: 2.2
+        pseudo_voigt_mix:
+          initial_guess: 0.2
+          min_bound: 0.10
+          max_bound: 0.50
+      - name: LixPOyFz
+        # Degradation product from reaction with residual water
+        amplitude:
+          initial_guess: 100
+          min_bound: 0
+          max_bound: 8000
+        binding_energy:
+          initial_guess: 685.0
+          min_bound: 686.8
+          max_bound: 687.5
+        fwhm:
+          initial_guess: 1.5
+          min_bound: 1.2
+          max_bound: 2.0
+          is_constrained: true
+          constraint_to: LiF
+        pseudo_voigt_mix:
+          initial_guess: 0.35
+          min_bound: 0.30
+          max_bound: 0.40
+          is_constrained: true
+          constraint_to: LiF
+      - name: CnFm
+        # This is the Fluoroorganic peak
+        amplitude:
+          initial_guess: 500
+          min_bound: 0
+          max_bound: 8000
+        binding_energy:
+          initial_guess: 690.0
+          min_bound: 688
+          max_bound: 691
+        fwhm:
+          initial_guess: 1.5
+          min_bound: 1.2
+          max_bound: 2.0
+          is_constrained: true
+          constraint_to: LiF
+        pseudo_voigt_mix:
+          initial_guess: 0.35
+          min_bound: 0.25
+          max_bound: 0.40
+          is_constrained: true
+          constraint_to: LiF

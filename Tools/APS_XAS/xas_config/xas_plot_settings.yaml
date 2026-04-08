@@ -1,0 +1,212 @@
+# XAS Plotting Configuration
+# This file contains all plot styling and layout settings for XAS data visualization
+# Users can modify these settings without touching the code for publication-quality figures
+
+# Publication Quality Settings (High-resolution, large fonts for journals)
+publication:
+  # High-resolution settings for publication figures
+  dpi: 600                        # High DPI for crisp publication figures
+
+  # Publication font sizes (larger for readability)
+  fonts:
+    title_size: 24                # Main plot titles
+    subtitle_size: 20             # Subplot titles
+    axis_label_size: 20           # X and Y axis labels
+    tick_label_size: 18           # Tick mark labels
+    legend_size: 20               # Legend text
+    annotation_size: 18           # Text annotations
+
+  # Line widths for publication quality
+  lines:
+    data_line_width: 4.0          # Experimental data line thickness
+    fit_line_width: 4.5           # Fit line thickness
+    grid_line_width: 1.5          # Grid line thickness
+    axis_line_width: 2.0          # Axis line thickness
+
+  # Marker settings
+  markers:
+    size: 12                      # Data point marker size
+    edge_width: 2.0               # Marker edge thickness
+
+  # Legend settings for publication quality
+  legend:
+    position: "best"              # Legend position (let matplotlib decide best location)
+    bbox_anchor: [1.02, 1.0]     # Legend anchor point [x, y]
+    alpha: 0.95                   # Legend transparency
+    frameon: true                 # Show legend frame
+    fontsize: 20                  # Legend font size (publication quality)
+    title_fontsize: 22            # Legend title font size (publication quality)
+
+  # Figure size for publications (inches)
+  figure_sizes:
+    single_column: [3.5, 2.8]     # Single column figure (ACS standard)
+    double_column: [7.2, 5.5]     # Double column figure
+    xanes_overview: [8, 6]        # XANES overview plots
+    exafs_overview: [10, 8]       # EXAFS overview plots
+
+plot_settings:
+  # Figure size settings (width, height in inches)
+  figure_sizes:
+    xanes_single: [12, 8]         # Single XANES spectrum
+    exafs_single: [12, 8]         # Single EXAFS spectrum
+    ft_single: [12, 8]            # Single Fourier transform
+    combined_single: [14, 10]     # Combined XANES + EXAFS + FT
+    comparison_xanes: [10, 8]     # Multi-sample XANES comparison
+    comparison_exafs: [10, 8]     # Multi-sample EXAFS comparison
+    comparison_ft: [10, 8]        # Multi-sample FT comparison
+    overview_panel: [16, 12]      # Multi-panel overview
+
+  # DPI (resolution) settings
+  dpi: 300                        # Default DPI for saved plots
+
+  # Font settings
+  fonts:
+    title_size: 20                # Main plot titles
+    subtitle_size: 18             # Subplot titles
+    axis_label_size: 18           # X and Y axis labels
+    tick_label_size: 16           # Tick mark labels
+    legend_size: 18               # Legend text
+    annotation_size: 16           # Text annotations on plots
+    info_text_size: 14            # Information text boxes
+
+  # Legend settings
+  legend:
+    position: "best"              # Legend position (let matplotlib decide best location)
+    bbox_anchor: [1.02, 1.0]     # Legend anchor point [x, y]
+    alpha: 0.95                   # Legend transparency
+    frameon: true                 # Show legend frame
+    fontsize: 16                  # Legend font size
+    title_fontsize: 18            # Legend title font size
+
+  # Line and curve settings
+  lines:
+    data_line_width: 3.5          # Data line thickness
+    fit_line_width: 3.0           # Fit line thickness
+    grid_line_width: 1.2          # Grid line thickness
+    axis_line_width: 1.8          # Axis line thickness
+    comparison_alpha: 0.8         # Transparency for comparison plots
+
+  # Marker settings
+  markers:
+    size: 8                       # Data point marker size
+    edge_width: 1.5               # Marker edge thickness
+    alpha: 0.9                    # Marker transparency
+
+  # Subplot spacing and margins
+  layout:
+    subplot_adjust:
+      top: 0.92                   # Top margin
+      bottom: 0.08                # Bottom margin
+      left: 0.08                  # Left margin
+      right: 0.92                 # Right margin
+      hspace: 0.25                # Height spacing between subplots
+      wspace: 0.25                # Width spacing between subplots
+
+    title_pad: 20                 # Padding below title
+
+  # Height ratios for multi-panel plots
+  height_ratios:
+    xanes_exafs: [1, 1]           # XANES vs EXAFS ratio
+    exafs_ft: [1, 1]              # EXAFS vs FT ratio
+    triple_panel: [1, 1, 1]       # XANES + EXAFS + FT ratio
+
+  # Color settings
+  colors:
+    data_line: "#1f77b4"          # Default data line color (blue)
+    fit_line: "#ff7f0e"           # Fit line color (orange)
+    grid: "#d3d3d3"               # Grid color
+    background: "white"           # Plot background
+    annotation: "#2ca02c"         # Annotation text color (green)
+
+# XAS-specific plot settings
+xas_plots:
+  # XANES plot settings
+  xanes:
+    x_label: "Energy (eV)"
+    y_label: "Normalized mu(E)"
+    title_template: "XANES Spectrum: {sample_name}"
+    show_e0_line: true
+    e0_line_color: "red"
+    e0_line_style: "--"
+    e0_line_width: 2.5
+    e0_label: "$E^{0}$ = {e0:.1f} eV"  # E0 superscript
+    energy_range_display: [6500, 8000]  # Default energy range for display
+
+  # EXAFS plot settings
+  exafs:
+    k_weight: 2                   # Default k-weighting for display
+    x_label: "k (A^-1)"
+    y_label: "chi(k) x k^2"
+    title_template: "EXAFS Spectrum: {sample_name}"
+    k_range_display: [2, 12]     # Default k-range for display
+
+  # Fourier Transform plot settings
+  fourier_transform:
+    x_label: 'R (Angstrom)'
+    y_label: "|chi(R)|"
+    title_template: "Fourier Transform: {sample_name}"
+    r_range_display: [1, 6]      # Default R-range for display
+    show_phase: false             # Show magnitude only by default
+    window_type: "hanning"        # Window function used
+
+  # Comparison plot settings
+  comparison:
+    max_samples: 8                # Maximum samples to show in comparison
+    color_palette: "tab10"        # Color palette for multiple samples
+    legend_columns: 2             # Number of columns in legend
+    line_styles: ["-", "--", "-.", ":"]  # Line styles for differentiation
+
+# Chemistry-specific colormaps for different elements
+element_colormaps:
+  Fe: 'Reds'                      # Red palette for iron
+  Cu: 'Blues'                     # Blue palette for copper
+  Zn: 'Greens'                    # Green palette for zinc
+  Ni: 'Purples'                   # Purple palette for nickel
+  Co: 'Oranges'                   # Orange palette for cobalt
+  default: 'viridis'              # Default colormap
+
+# Workflow-specific plot settings
+workflow_plots:
+  individual:
+    show_grid: true
+    grid_alpha: 0.3
+    show_metadata: true
+
+  comparison:
+    show_grid: true
+    grid_alpha: 0.3
+    normalize_intensities: false
+    align_e0: true
+
+  batch_overview:
+    show_statistics: true
+    stat_box_alpha: 0.9
+    max_preview_samples: 6
+
+  quality_check:
+    show_processing_params: true
+    highlight_anomalies: true
+    anomaly_threshold: 0.1
+
+# Export settings
+export:
+  formats: ["png", "pdf", "svg"]  # Available export formats
+  default_format: "png"           # Default format
+  bbox_inches: "tight"            # Tight bounding box
+  transparent: false              # Transparent background
+  facecolor: "white"              # Background color
+  pad_inches: 0.1                 # Padding around figure
+
+# Publication mode toggle
+# Set this to true to automatically use publication settings for all plots
+use_publication_quality: true
+
+# Advanced settings (for power users)
+advanced:
+  matplotlib_style: "seaborn-v0_8-whitegrid"  # Matplotlib style sheet
+  color_palette: "tab10"          # Default color palette
+  figure_facecolor: "white"       # Figure background color
+  axes_facecolor: "white"         # Axes background color
+  savefig_format: "png"           # Default save format
+  savefig_bbox: "tight"           # Bounding box setting
+  savefig_pad: 0.1                # Padding for saved figures
