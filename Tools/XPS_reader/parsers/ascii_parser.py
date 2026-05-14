@@ -142,6 +142,20 @@ class ASCIIParser(BaseParser):
         }
         if header_lines:
             metadata["header_lines"] = header_lines
+            # Extract pass energy from header comments, e.g.:
+            #   # Pass Energy: 20   |   # PassEnergy=40.5   |   # pass energy 160
+            _pe_re = re.compile(
+                r'pass[_ ]?energy[\s=:]+([0-9]+(?:\.[0-9]*)?)'
+                , re.IGNORECASE
+            )
+            for hline in header_lines:
+                m = _pe_re.search(hline)
+                if m:
+                    try:
+                        metadata['pass_energy'] = float(m.group(1))
+                    except ValueError:
+                        pass
+                    break
         if skipped_lines:
             metadata["skipped_line_count"] = len(skipped_lines)
             metadata["skipped_line_examples"] = skipped_lines[:5]

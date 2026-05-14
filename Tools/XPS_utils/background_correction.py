@@ -28,43 +28,67 @@ def cumulative_trapz_rev(x: np.ndarray, f: np.ndarray) -> np.ndarray:
     return out
 
 
-def baseline_shirley(x: np.ndarray, y: np.ndarray, niter: int = 100, tol: float = 1e-6) -> np.ndarray:
+def baseline_shirley(x: np.ndarray, y: np.ndarray, niter: int = 100,
+                      tol: float = 1e-6, n_endpoint_avg: int = 7) -> np.ndarray:
     """
     Shirley background subtraction with iterative solution.
-    
-    The Shirley background is commonly used in XPS to model the inelastic scattering
-    background. It assumes the background at each point is proportional to the
-    integrated intensity of the peak above that point.
-    
+
+    The Shirley background is commonly used in XPS to model the inelastic
+    scattering background.  It assumes the background at each point is
+    proportional to the integrated intensity of the peak above that point.
+
+    Endpoint values are computed as the mean of the first/last
+    ``n_endpoint_avg`` points so that a single noisy sample cannot push the
+    background above the true baseline.  The computed background is also
+    clamped to never exceed the raw data at any point, preventing negative
+    background-corrected intensities.
+
     Args:
-        x: Energy values (must be sorted ascending)
+        x: Energy values (ascending or descending — direction is auto-handled)
         y: Intensity values
-        niter: Maximum number of iterations (default: 100)
+        niter: Maximum iterations (default: 100)
         tol: Convergence tolerance (default: 1e-6)
-        
+        n_endpoint_avg: Number of points averaged at each end to establish
+            stable baseline endpoints (default: 7)
+
     Returns:
-        Array of background intensity values
-        
-    Example:
-        >>> energy = np.linspace(280, 290, 100)
-        >>> intensity = np.random.rand(100) + 5
-        >>> background = baseline_shirley(energy, intensity)
-        >>> corrected = intensity - background
+        Array of background intensity values (same length and direction as input)
     """
-    B = np.linspace(y[0], y[-1], len(y))
-    B[-1] = y[-1]
-    
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    # Work on a consistently ascending copy; restore original order at the end.
+    if x[0] > x[-1]:
+        x_w, y_w = x[::-1], y[::-1]
+        flipped = True
+    else:
+        x_w, y_w = x.copy(), y.copy()
+        flipped = False
+
+    n = len(y_w)
+    n_avg = max(1, min(n_endpoint_avg, n // 5))  # guard against tiny spectra
+
+    # Stable endpoints: mean of first / last n_avg points
+    y_left  = float(np.mean(y_w[:n_avg]))
+    y_right = float(np.mean(y_w[-n_avg:]))
+
+    B = np.linspace(y_left, y_right, n)
+    B[-1] = y_right
+
     for _ in range(niter):
         prev = B.copy()
-        S = cumulative_trapz_rev(x, y - B)
-        k = (y[0] - B[-1]) / (S[0] + 1e-15)
-        B = B[-1] + k * S
-        B[-1] = y[-1]
-        
+        S = cumulative_trapz_rev(x_w, y_w - B)
+        k = (y_left - y_right) / (S[0] + 1e-15)
+        B = y_right + k * S
+        B[-1] = y_right
+
         if np.linalg.norm(B - prev) / (np.linalg.norm(prev) + 1e-15) < tol:
             break
-    
-    return B
+
+    # Clamp: background must never exceed the raw data (prevents negative residuals)
+    B = np.minimum(B, y_w)
+
+    return B[::-1] if flipped else B
 
 
 def shirley_background(x: np.ndarray, y: np.ndarray) -> np.ndarray:

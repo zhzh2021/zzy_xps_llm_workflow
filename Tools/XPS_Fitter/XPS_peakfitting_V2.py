@@ -236,13 +236,26 @@ SAVE_PLOTS = True
 
 # Template auto-selection mapping
 TEMPLATE_MAPPING = {
-    "F1s": "LIB_SEI_F1s_v1.yaml",
-    "O1s": "LIB_SEI_O1s_v1.yaml", 
-    "C1s": "LIB_SEI_C1s_v1.yaml",
+    "F1s":  "LIB_SEI_F1s_v1.yaml",
+    "O1s":  "LIB_SEI_O1s_v1.yaml",
+    "C1s":  "LIB_SEI_C1s_v1.yaml",
     "Li1s": "LIB_SEI_Li1s_v1.yaml",
-    "N1s": "LIB_SEI_N1s_v1.yaml",
-    "S2p": "LIB_SEI_S2p_v1.yaml",
+    "Na1s": "LIB_SEI_Na1s_v1.yaml",
+    "N1s":  "LIB_SEI_N1s_v1.yaml",
+    "S2p":  "LIB_SEI_S2p_v1.yaml",
     "Si2p": "LIB_SEI_Si2p_v1.yaml",
+    "P2p":  "LIB_SEI_P2p_v1.yaml",
+    "Al2p": "LIB_SEI_Al2p_v1.yaml",
+    "Ag3d": "LIB_SEI_Ag3d_v1.yaml",
+    "Ir4f": "LIB_SEI_Ir4f_v1.yaml",
+    "Cu2p": "LIB_SEI_Cu2p_v1.yaml",
+    # Pt/TiO2 catalyst templates (override LIB_SEI defaults for these elements)
+    "Cl2p": "PtTiO2_Cl2p_v1.yaml",
+    "Ti2p": "LIB_SEI_Ti2p_v1.yaml",
+    "Pt4f": "LIB_SEI_Pt4f_v1.yaml",
+    # Mg-based systems (Mg anodes, Mg-ion battery SEI)
+    "Mg2p": "LIB_SEI_Mg2p_v1.yaml",
+    "Mg2s": "LIB_SEI_Mg2s_v1.yaml",
 }
 
 
@@ -334,7 +347,7 @@ def parse_template_to_regions(template: Dict) -> List[Dict]:
             out['max_bound'] = d['max']
 
         # pass-through flags if present
-        for k in ('is_constrained', 'constraint_to'):
+        for k in ('is_constrained', 'constraint_to', 'constraint_ratio'):
             if k in d:
                 out[k] = d[k]
 
@@ -378,6 +391,9 @@ def parse_template_to_regions(template: Dict) -> List[Dict]:
 
         # Components
         for comp in region.get('components', []):
+            # Skip disabled components
+            if not comp.get('enabled', True):
+                continue
             comp_name = comp.get('name', 'component')
 
             amp_cfg  = canon_param_dict(comp.get('amplitude', {}),
@@ -672,6 +688,11 @@ def fit_region_with_template(energy, intensity, region_config):
 
     # 4) Grab component templates
     comps = region_config.get('components', [])
+    # Filter out components with enabled: false
+    disabled = [c['name'] for c in comps if not c.get('enabled', True)]
+    if disabled:
+        print(f"      [INFO] Skipping disabled components: {', '.join(disabled)}")
+    comps = [c for c in comps if c.get('enabled', True)]
     if not comps:
         print("      [ERROR] No components defined in template")
         return None
@@ -731,58 +752,62 @@ def fit_region_with_template(energy, intensity, region_config):
         A_cfg = comp.get('amplitude', {})
         if not A_cfg:
             raise ValueError(f"Component '{name}' missing 'amplitude' configuration in YAML")
-        
-        if 'min_bound' not in A_cfg or 'max_bound' not in A_cfg:
-            raise ValueError(f"Component '{name}' missing amplitude min_bound or max_bound in YAML")
-        
-        # Read template bounds as baseline reference
-        Amin_template = float(A_cfg['min_bound'])
-        Amax_template = float(A_cfg['max_bound'])
-        
-        # Get component's expected binding energy for matching with detected peaks
-        be_cfg = comp.get('binding_energy', {})
-        be_guess = float(be_cfg.get('initial_guess', (be_cfg.get('min_bound', 0) + be_cfg.get('max_bound', 0)) / 2))
-        
-        # Try to match this component with a detected peak
-        matched_peak_height = None
-        if len(peak_positions) > 0:
-            # Find closest detected peak to this component's expected position
-            be_diffs = np.abs(peak_positions - be_guess)
-            closest_idx = np.argmin(be_diffs)
-            if be_diffs[closest_idx] < 3.0:  # Within 3 eV tolerance
-                matched_peak_height = peak_heights[closest_idx]
-        
-        # Auto-scale bounds based on actual data intensity
-        data_scale = max(Imax, 1.0)
-        template_scale = max(Amax_template, 1.0)
-        scale_factor = data_scale / template_scale if template_scale > 0 else 1.0
-        
-        # Only scale up if data is significantly larger than template expectation
-        if scale_factor > 1.5:
-            Amin = Amin_template
-            Amax = Amax_template * scale_factor * 3.0  # 3x safety margin
+
+        # --- Spin-orbit doublet amplitude constraint ---
+        amp_is_constrained = bool(A_cfg.get('is_constrained', False))
+        amp_master = A_cfg.get('constraint_to', None)
+        amp_ratio  = float(A_cfg.get('constraint_ratio', 1.0))
+        if (amp_is_constrained and isinstance(amp_master, str)
+                and amp_master in param_idx
+                and 'amplitude' in param_idx[amp_master]):
+            # Constrained: amplitude = ratio * master amplitude  (no new free param)
+            master_amp_idx = param_idx[amp_master]['amplitude']
+            param_idx[name]['amplitude'] = (master_amp_idx, amp_ratio)
         else:
-            Amin = Amin_template
-            Amax = Amax_template
-        
-        # Initial guess priority:
-        # 1. Use matched detected peak height if available
-        # 2. Use YAML initial_guess scaled by data
-        # 3. Fallback to data-driven estimate
-        if matched_peak_height is not None:
-            A0 = matched_peak_height * 0.8  # Use 80% of peak height as initial guess
-        else:
-            A0_guess = float(A_cfg.get('initial_guess', Imax / max(1, n_comp)))
-            # Scale initial guess with data
-            A0 = A0_guess * scale_factor if scale_factor > 1.5 else A0_guess
-        
-        A0 = float(np.clip(A0, Amin, Amax))
-        
-        idxA = len(p0)
-        p0.append(A0)
-        lower.append(Amin)
-        upper.append(Amax)
-        param_idx[name]['amplitude'] = idxA
+            if 'min_bound' not in A_cfg or 'max_bound' not in A_cfg:
+                raise ValueError(f"Component '{name}' missing amplitude min_bound or max_bound in YAML")
+
+            # Read template bounds as baseline reference
+            Amin_template = float(A_cfg['min_bound'])
+            Amax_template = float(A_cfg['max_bound'])
+
+            # Get component's expected binding energy for matching with detected peaks
+            be_cfg = comp.get('binding_energy', {})
+            be_guess = float(be_cfg.get('initial_guess', (be_cfg.get('min_bound', 0) + be_cfg.get('max_bound', 0)) / 2))
+
+            # Try to match this component with a detected peak
+            matched_peak_height = None
+            if len(peak_positions) > 0:
+                be_diffs = np.abs(peak_positions - be_guess)
+                closest_idx = np.argmin(be_diffs)
+                if be_diffs[closest_idx] < 3.0:
+                    matched_peak_height = peak_heights[closest_idx]
+
+            # Auto-scale bounds based on actual data intensity
+            data_scale = max(Imax, 1.0)
+            template_scale = max(Amax_template, 1.0)
+            scale_factor = data_scale / template_scale if template_scale > 0 else 1.0
+
+            if scale_factor > 1.5:
+                Amin = Amin_template
+                Amax = Amax_template * scale_factor * 3.0
+            else:
+                Amin = Amin_template
+                Amax = Amax_template
+
+            if matched_peak_height is not None:
+                A0 = matched_peak_height * 0.8
+            else:
+                A0_guess = float(A_cfg.get('initial_guess', Imax / max(1, n_comp)))
+                A0 = A0_guess * scale_factor if scale_factor > 1.5 else A0_guess
+
+            A0 = float(np.clip(A0, Amin, Amax))
+
+            idxA = len(p0)
+            p0.append(A0)
+            lower.append(Amin)
+            upper.append(Amax)
+            param_idx[name]['amplitude'] = idxA
 
         # ===== CENTER (Binding Energy) =====
         be = comp.get('binding_energy', {})
@@ -1041,10 +1066,19 @@ def fit_region_with_template(energy, intensity, region_config):
     # ========================================================================
     for comp in comps:
         name = comp['name']
-        for key in ['amplitude', 'center', 'eta']:
+        for key in ['center', 'eta']:
             ix = param_idx[name][key]
             assert isinstance(ix, int), f"{name}.{key} index is not int: {ix}"
             assert 0 <= ix < len(p0), f"{name}.{key} index {ix} out of range for p0 len {len(p0)}"
+        # amplitude may be a free index (int) or a constrained tuple (master_idx, ratio)
+        amp_ref = param_idx[name]['amplitude']
+        if isinstance(amp_ref, tuple):
+            master_idx, ratio = amp_ref
+            assert isinstance(master_idx, int), f"{name}.amplitude master index not int: {master_idx}"
+            assert 0 <= master_idx < len(p0), f"{name}.amplitude master idx {master_idx} out of range"
+        else:
+            assert isinstance(amp_ref, int), f"{name}.amplitude index is not int: {amp_ref}"
+            assert 0 <= amp_ref < len(p0), f"{name}.amplitude index {amp_ref} out of range for p0 len {len(p0)}"
         w_ref = param_idx[name]['fwhm']
         if isinstance(w_ref, tuple):
             base_idx, delta_idx = w_ref
@@ -1061,7 +1095,12 @@ def fit_region_with_template(energy, intensity, region_config):
     print(f"      [TARGET] Fitting {n_comp} components with {len(p0)} free params")
     for comp in comps:
         name = comp['name']
-        A0 = p0[param_idx[name]['amplitude']]
+        amp_ref = param_idx[name]['amplitude']
+        if isinstance(amp_ref, tuple):
+            master_idx, ratio = amp_ref
+            A0 = p0[master_idx] * ratio
+        else:
+            A0 = p0[amp_ref]
         c0 = p0[param_idx[name]['center']]
         w_ref = param_idx[name]['fwhm']
         eta_idx = param_idx[name]['eta']
@@ -1111,9 +1150,13 @@ def fit_region_with_template(energy, intensity, region_config):
         for comp in comps:
             name = comp['name']
 
-            # amplitude (non-negative)
-            A_idx = param_idx[name]['amplitude']
-            A     = max(float(params[A_idx]), 0.0)
+            # amplitude (non-negative); may be free (int) or constrained (master_idx, ratio)
+            amp_ref = param_idx[name]['amplitude']
+            if isinstance(amp_ref, tuple):
+                master_idx, ratio = amp_ref
+                A = max(float(params[master_idx]) * ratio, 0.0)
+            else:
+                A = max(float(params[amp_ref]), 0.0)
 
             # center (binding energy)
             C_idx = param_idx[name]['center']
@@ -1208,7 +1251,12 @@ def fit_region_with_template(energy, intensity, region_config):
         name = comp['name']
 
         # amplitude & center
-        A   = max(popt[param_idx[name]['amplitude']], 0.0)
+        amp_ref = param_idx[name]['amplitude']
+        if isinstance(amp_ref, tuple):
+            master_idx, ratio = amp_ref
+            A = max(float(popt[master_idx]) * ratio, 0.0)
+        else:
+            A = max(float(popt[amp_ref]), 0.0)
         cen = popt[param_idx[name]['center']]
 
         # FWHM (shared/tol/per-peak)
@@ -1270,6 +1318,125 @@ def fit_region_with_template(energy, intensity, region_config):
 
 # ========== STEP 4: REPORTING ==========
 
+def template_compatibility_check(
+    energy: np.ndarray,
+    intensity: np.ndarray,
+    template: Dict,
+    snr_threshold: float = 3.0,
+) -> Dict:
+    """
+    Pre-batch validation: check whether the data/template pair is suitable
+    for fitting before committing to a full batch run.
+
+    Checks performed
+    ----------------
+    1. SNR gate      — peak signal-to-noise must exceed snr_threshold
+    2. Energy coverage — template energy ranges must lie within data bounds
+    3. Peak detectability — at least one region must have a plausible peak
+    4. R² sanity     — quick single-region fit R² must be > 0.50
+    5. Enough data points — each region must have ≥ 10 data points
+
+    Returns
+    -------
+    dict with keys:
+        passed (bool), r2 (float|None), snr (float),
+        energy_covered (bool), peaks_detectable (bool),
+        warnings (list[str]), errors (list[str]),
+        recommendation (str)
+    """
+    warnings_out: List[str] = []
+    errors_out: List[str] = []
+    regions = parse_template_to_regions(template)
+
+    def _compat_result(passed: bool, r2=None, snr=0.0,
+                       energy_covered=False, peaks_detectable=False,
+                       recommendation="") -> Dict:
+        prefix = "✅ Compatible" if passed else "❌ Incompatible"
+        return {
+            "passed": passed,
+            "r2": r2,
+            "snr": float(snr),
+            "energy_covered": energy_covered,
+            "peaks_detectable": peaks_detectable,
+            "warnings": warnings_out,
+            "errors": errors_out,
+            "recommendation": f"{prefix}: {recommendation}",
+        }
+
+    if len(energy) < 20:
+        errors_out.append("Spectrum has fewer than 20 data points.")
+        return _compat_result(False, recommendation="Too few data points for fitting.")
+
+    # 1. SNR
+    noise_std = float(np.std(intensity[:max(5, len(intensity) // 10)]))
+    peak_signal = float(np.max(intensity) - np.min(intensity))
+    snr = (peak_signal / noise_std) if noise_std > 0 else 0.0
+    if snr < snr_threshold:
+        warnings_out.append(f"Low SNR ({snr:.1f} < {snr_threshold}); fitting may be unreliable.")
+
+    # 2. Energy coverage
+    e_min, e_max = float(np.min(energy)), float(np.max(energy))
+    covered_regions = 0
+    uncovered = []
+    for reg in regions:
+        rng = reg.get("energy_range", [])
+        if len(rng) == 2:
+            if float(rng[0]) >= e_min and float(rng[1]) <= e_max:
+                covered_regions += 1
+            else:
+                uncovered.append(reg.get("name", "?"))
+    energy_covered = covered_regions > 0
+    if uncovered:
+        warnings_out.append(f"Regions outside data energy range: {uncovered}")
+    if not energy_covered:
+        errors_out.append("No template regions are within the data energy range.")
+        return _compat_result(False, snr=snr, recommendation="Template energy ranges do not overlap data.")
+
+    # 3. Peak detectability
+    peaks_detectable = False
+    for reg in regions:
+        rng = reg.get("energy_range", [])
+        if len(rng) != 2:
+            continue
+        mask = (energy >= float(rng[0])) & (energy <= float(rng[1]))
+        if np.count_nonzero(mask) < 10:
+            continue
+        I_sub = intensity[mask]
+        if np.max(I_sub) - np.min(I_sub) > noise_std * 1.5:
+            peaks_detectable = True
+            break
+    if not peaks_detectable:
+        warnings_out.append("No clear peaks detected in template regions — fitting may return trivial results.")
+
+    # 4. Quick R² check on first covered region
+    r2_check = None
+    for reg in regions:
+        rng = reg.get("energy_range", [])
+        if len(rng) != 2:
+            continue
+        Ex, Ix = slice_roi(energy, intensity, rng)
+        if len(Ex) < 10:
+            continue
+        fit = fit_region_with_template(Ex, Ix, reg)
+        if fit is not None:
+            r2_check = fit.get("r2", None)
+            break
+    if r2_check is not None and r2_check < 0.50:
+        warnings_out.append(f"Quick-fit R²={r2_check:.3f} < 0.50; template may be mismatched.")
+
+    passed = (not errors_out) and energy_covered
+    rec = (
+        "Proceed with batch fitting."
+        if passed
+        else f"Address {len(errors_out)} error(s) before batch fitting."
+    )
+    return _compat_result(
+        passed, r2=r2_check, snr=snr,
+        energy_covered=energy_covered, peaks_detectable=peaks_detectable,
+        recommendation=rec,
+    )
+
+
 def process_file_with_template(file: Path, template_path: Path) -> Tuple[pd.DataFrame, List, Dict]:
     """Process XPS file using YAML template."""
     print(f"  [FILE] Loading template: {template_path.name}")
@@ -1288,6 +1455,17 @@ def process_file_with_template(file: Path, template_path: Path) -> Tuple[pd.Data
         return pd.DataFrame(), [], None
 
     print(f"  [DATA] Found {len(layers)} layers in {file.name}")
+
+    # Pre-batch template compatibility check (uses first layer as representative)
+    _first_E, _first_I = layers[0]
+    _compat = template_compatibility_check(_first_E, _first_I, template)
+    print(f"  [COMPAT] {_compat['recommendation']}")
+    for w in _compat['warnings']:
+        print(f"  [COMPAT WARNING] {w}")
+    if not _compat['passed']:
+        for e in _compat['errors']:
+            print(f"  [COMPAT ERROR] {e}")
+        return pd.DataFrame(), [], None
 
     # Try to recover per-layer labels for aggregated CSVs
     labels = get_aggregated_layer_labels(file)  # [] if not aggregated
@@ -1406,6 +1584,9 @@ def process_file_with_template(file: Path, template_path: Path) -> Tuple[pd.Data
                 except Exception as e:
                     print(f"      [WARNING]  Failed to create stacked plot for {region_name}: {e}")
 
+    # Attach template compatibility report
+    fit_results_data['template_compatibility'] = _compat
+
     return pd.DataFrame(all_rows), plots, fit_results_data
 
 
@@ -1424,23 +1605,39 @@ def discover_available_regions_and_templates(input_dir: Path, template_dir: Path
     template_files = list(template_dir.glob("*.yaml")) + list(template_dir.glob("*.yml"))
     print(f"[LIST] Found {len(template_files)} template files: {[t.name for t in template_files]}")
     
+    # Build a lookup: template filename -> full path (case-insensitive key)
+    template_by_name = {t.name.lower(): t for t in template_files}
+
     # Match regions with templates
     for region_dir in region_dirs:
         region_name = region_dir.name
         template_path = None
-        
-        # Look for matching template
-        for template_file in template_files:
-            template_stem = template_file.stem.upper()
-            region_upper = region_name.upper()
-            
-            # Check if region name is in template name
-            if region_upper in template_stem:
-                template_path = template_file
-                break
-        
+
+        # --- Priority 1: explicit TEMPLATE_MAPPING override ---
+        explicit_file = TEMPLATE_MAPPING.get(region_name)
+        if explicit_file is None:
+            # try case-insensitive match on the key
+            explicit_file = TEMPLATE_MAPPING.get(region_name.upper()) or \
+                            TEMPLATE_MAPPING.get(region_name.lower())
+        if explicit_file:
+            candidate = template_dir / explicit_file
+            if candidate.exists():
+                template_path = candidate
+            else:
+                # also try case-insensitive in the collected files
+                template_path = template_by_name.get(explicit_file.lower())
+
+        # --- Priority 2: substring search on template stem ---
+        if template_path is None:
+            for template_file in template_files:
+                template_stem = template_file.stem.upper()
+                region_upper = region_name.upper()
+                if region_upper in template_stem:
+                    template_path = template_file
+                    break
+
         region_template_map[region_name] = template_path
-        
+
         if template_path:
             print(f"  [OK] {region_name} -> {template_path.name}")
         else:

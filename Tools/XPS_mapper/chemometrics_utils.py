@@ -12,15 +12,16 @@ Core algorithms:
 import numpy as np
 from typing import Optional, Dict
 import logging
-from pymcr.mcr import McrAR
 logger = logging.getLogger("xps_map")
 
 # MCR-ALS (optional dependency)
 try:
     from pymcr.mcr import McrAR
+    from pymcr.constraints import ConstraintNonneg
     MCR_AVAILABLE = True
 except ImportError:
     McrAR = None
+    ConstraintNonneg = None
     MCR_AVAILABLE = False
 
 # Sklearn (required for NMF fallback)
@@ -226,21 +227,25 @@ def run_mcr_on_cube(cube: np.ndarray, n_components: int = 3,
     if MCR_AVAILABLE and McrAR is not None:
         mcr = McrAR(
             max_iter=max_iter,
-            c_constraints=[np.maximum],  # Non-negative concentrations
-            st_constraints=[np.maximum]  # Non-negative spectra
+            c_constraints=[ConstraintNonneg()],
+            st_constraints=[ConstraintNonneg()]
         )
         
         # Initialize with random non-negative matrix
+        # NOTE: pymcr expects ST shape (n_components, p), not (p, n_components)
         np.random.seed(random_state)
-        ST_init = np.abs(np.random.randn(p, n_components))
+        ST_init = np.abs(np.random.randn(n_components, p))
         
         try:
             mcr.fit(X, ST=ST_init)
             C = mcr.C_   # (N, k) concentrations
-            ST = mcr.ST_  # (p, k) component spectra
+            ST = mcr.ST_.T  # transpose (k, p) -> (p, k) to match NMF convention
             method = "MCR-ALS"
-        except Exception as e:
-            logger.warning(f"MCR-ALS failed: {e}, falling back to NMF")
+        except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+            logger.warning(
+                f"MCR-ALS did not converge: {e}. Falling back to NMF. "
+                "Quantitative atomic % should be interpreted with caution when NMF is used."
+            )
             # Fallback to NMF
             nmf = NMF(n_components=n_components, init='nndsvda',
                      max_iter=500, random_state=random_state)
@@ -254,16 +259,28 @@ def run_mcr_on_cube(cube: np.ndarray, n_components: int = 3,
         C = nmf.fit_transform(X)
         ST = nmf.components_.T
         method = "NMF" + (" (pymcr not available)" if not MCR_AVAILABLE else "")
-    
+
     # Reshape concentration matrix to maps
     conc_maps = C.reshape(m, n, n_components)
-    
+
+    # Reconstruction quality metrics
+    X_recon = (C @ ST.T)
+    residuals = X - X_recon
+    ss_res = float(np.sum(residuals ** 2))
+    ss_tot = float(np.sum((X - X.mean()) ** 2))
+    r2_reconstruction = (1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
+    rms_error = float(np.sqrt(np.mean(residuals ** 2)))
+    fallback_used = not method.startswith("MCR-ALS")
+
     return {
         "method": method,
         "n_components": n_components,
         "concentrations": C,
         "conc_maps": conc_maps,
-        "component_spectra": ST
+        "component_spectra": ST,
+        "r2_reconstruction": r2_reconstruction,
+        "rms_error": rms_error,
+        "fallback_used": fallback_used,
     }
 
 
@@ -337,7 +354,8 @@ def run_mcr_with_pca_init(cube: np.ndarray,
     pca.fit(X)
     
     # Use PCA loadings as initial guess (make non-negative)
-    ST_init = np.abs(pca.components_.T)  # (p, k) shape
+    # NOTE: pymcr expects ST shape (k, p); pca.components_ is already (k, p)
+    ST_init = np.abs(pca.components_)  # (k, p) shape
     
     if pca_variance is None:
         pca_variance = pca.explained_variance_ratio_
@@ -348,21 +366,25 @@ def run_mcr_with_pca_init(cube: np.ndarray,
     if MCR_AVAILABLE and McrAR is not None:
         mcr = McrAR(
             max_iter=max_iter,
-            c_constraints=[np.maximum],  # Non-negative concentrations
-            st_constraints=[np.maximum]  # Non-negative spectra
+            c_constraints=[ConstraintNonneg()],
+            st_constraints=[ConstraintNonneg()]
         )
         
         try:
             mcr.fit(X, ST=ST_init)  # PCA-informed initialization
             C = mcr.C_   # (N, k) concentrations
-            ST = mcr.ST_  # (p, k) component spectra
+            ST = mcr.ST_.T  # transpose (k, p) -> (p, k) to match NMF convention
             method = f"MCR-ALS (PCA-init, k={n_components})"
-            
+
+
             # Log convergence info if available
             if hasattr(mcr, 'n_iter_'):
                 logger.info(f"MCR converged in {mcr.n_iter_} iterations")
-        except Exception as e:
-            logger.warning(f"MCR-ALS failed: {e}, falling back to NMF")
+        except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+            logger.warning(
+                f"MCR-ALS did not converge: {e}. Falling back to NMF. "
+                "Quantitative atomic % should be interpreted with caution when NMF is used."
+            )
             # Fallback to NMF
             nmf = NMF(n_components=n_components, init='nndsvda',
                      max_iter=500, random_state=random_state)
@@ -376,10 +398,19 @@ def run_mcr_with_pca_init(cube: np.ndarray,
         C = nmf.fit_transform(X)
         ST = nmf.components_.T
         method = f"NMF (k={n_components})" + (" (pymcr not available)" if not MCR_AVAILABLE else "")
-    
+
     # Reshape concentration matrix to maps
     conc_maps = C.reshape(m, n, n_components)
-    
+
+    # Reconstruction quality metrics
+    X_recon = (C @ ST.T)
+    residuals = X - X_recon
+    ss_res = float(np.sum(residuals ** 2))
+    ss_tot = float(np.sum((X - X.mean()) ** 2))
+    r2_reconstruction = (1.0 - ss_res / ss_tot) if ss_tot > 0 else float("nan")
+    rms_error = float(np.sqrt(np.mean(residuals ** 2)))
+    fallback_used = not method.startswith("MCR-ALS")
+
     return {
         "method": method,
         "n_components": n_components,
@@ -387,7 +418,10 @@ def run_mcr_with_pca_init(cube: np.ndarray,
         "concentrations": C,
         "conc_maps": conc_maps,
         "component_spectra": ST,
-        "pca_variance": pca_variance
+        "pca_variance": pca_variance,
+        "r2_reconstruction": r2_reconstruction,
+        "rms_error": rms_error,
+        "fallback_used": fallback_used,
     }
 
 

@@ -55,6 +55,13 @@ class RegionExtractor:
             scan_class.get('narrow_resolution_threshold', 4))
         self.hr_resolution_threshold = float(
             scan_class.get('hr_resolution_threshold', 5))
+        # Pass energy thresholds: pass energy is the primary hardware parameter
+        # controlling analyzer resolution. Low pass energy → high resolution.
+        # Defaults: ≤ 50 eV → HR narrow; ≥ 100 eV → survey.
+        self.hr_pass_energy_threshold = float(
+            scan_class.get('hr_pass_energy_threshold', 50))
+        self.survey_pass_energy_threshold = float(
+            scan_class.get('survey_pass_energy_threshold', 100))
 
         # Store output flags
         out = self.config.get('output', {})
@@ -64,30 +71,52 @@ class RegionExtractor:
         """
         Classify spectrum as survey or narrow scan using YAML-configured thresholds.
 
-        Survey scans typically:
-        - Cover wide energy range (> survey_energy_threshold eV)
-        - Have lower resolution (< hr_resolution_threshold points/eV)
+        Pass energy (the primary hardware parameter controlling analyzer resolution)
+        is used as the primary classifier when available in spectrum.metadata.
+        Falls back to energy range and pts/eV heuristics when pass energy is absent.
 
-        Narrow scans typically:
-        - Cover small energy range (< narrow_energy_threshold eV)
-        - Have higher resolution (> narrow_resolution_threshold points/eV)
+        Survey scans typically:
+        - Pass energy >= survey_pass_energy_threshold (default 100 eV)
+        - OR cover wide energy range (> survey_energy_threshold eV)
+
+        Narrow/high-resolution scans typically:
+        - Pass energy <= hr_pass_energy_threshold (default 50 eV)
+        - AND cover small energy range (< narrow_energy_threshold eV)
         """
         energy_range = spectrum.energy.max() - spectrum.energy.min()
         n_points = len(spectrum.energy)
         resolution = n_points / energy_range if energy_range > 0 else 0
+        pass_energy = spectrum.metadata.get('pass_energy')
 
-        if energy_range > self.survey_energy_threshold:
-            scan_type = ScanType.SURVEY
-            print(f"   📊 Classified as SURVEY scan: "
-                  f"range={energy_range:.1f} eV, resolution={resolution:.2f} pts/eV")
-        elif energy_range < self.narrow_energy_threshold and resolution > self.narrow_resolution_threshold:
-            scan_type = ScanType.NARROW
-            print(f"   🔬 Classified as NARROW scan: "
-                  f"range={energy_range:.1f} eV, resolution={resolution:.2f} pts/eV")
+        if pass_energy is not None:
+            # Primary classification: use pass energy
+            if pass_energy >= self.survey_pass_energy_threshold:
+                scan_type = ScanType.SURVEY
+                print(f"   📊 Classified as SURVEY scan: "
+                      f"pass_energy={pass_energy:.0f} eV, range={energy_range:.1f} eV")
+            elif (pass_energy <= self.hr_pass_energy_threshold
+                  and energy_range < self.narrow_energy_threshold):
+                scan_type = ScanType.NARROW
+                print(f"   🔬 Classified as NARROW scan: "
+                      f"pass_energy={pass_energy:.0f} eV, range={energy_range:.1f} eV")
+            else:
+                scan_type = ScanType.AUTO
+                print(f"   ⚠️ Ambiguous scan type: "
+                      f"pass_energy={pass_energy:.0f} eV, range={energy_range:.1f} eV")
         else:
-            scan_type = ScanType.AUTO
-            print(f"   ⚠️ Ambiguous scan type: "
-                  f"range={energy_range:.1f} eV, resolution={resolution:.2f} pts/eV")
+            # Fallback: use energy range and step-size heuristics
+            if energy_range > self.survey_energy_threshold:
+                scan_type = ScanType.SURVEY
+                print(f"   📊 Classified as SURVEY scan (no pass_energy): "
+                      f"range={energy_range:.1f} eV, resolution={resolution:.2f} pts/eV")
+            elif energy_range < self.narrow_energy_threshold and resolution > self.narrow_resolution_threshold:
+                scan_type = ScanType.NARROW
+                print(f"   🔬 Classified as NARROW scan (no pass_energy): "
+                      f"range={energy_range:.1f} eV, resolution={resolution:.2f} pts/eV")
+            else:
+                scan_type = ScanType.AUTO
+                print(f"   ⚠️ Ambiguous scan type (no pass_energy): "
+                      f"range={energy_range:.1f} eV, resolution={resolution:.2f} pts/eV")
 
         return scan_type
 
@@ -275,8 +304,17 @@ class RegionExtractor:
             print(f"      Survey scans are only suitable for atomic quantification")
 
         if auto_detect:
-            regions_to_extract = self.detect_regions(
-                spectrum, scan_type=scan_type)
+            # If the spectrum already carries a recognized region label (e.g. from a
+            # named column in a multi-region CSV), trust that label and skip
+            # energy-range-based detection to avoid mislabeling overlapping regions
+            # (e.g. Al2p scan at 70-94 eV being assigned to Pt4f [68-82 eV]).
+            source_label = spectrum.metadata.get('region', '')
+            if source_label and source_label in self.region_defs:
+                regions_to_extract = [source_label]
+                print(f"   ℹ️  Using source region label: {source_label}")
+            else:
+                regions_to_extract = self.detect_regions(
+                    spectrum, scan_type=scan_type)
         else:
             regions_to_extract = specific_regions or list(
                 self.region_defs.keys())

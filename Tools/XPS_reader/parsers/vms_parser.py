@@ -200,28 +200,47 @@ class VAMASParser(BaseParser):
         """
         i = start_idx + 1
         metadata = {'region_name': region_name}
-        
+
         num_points = None
         data_start = None
-        
+
+        # Regex for labelled pass energy in block headers produced by some
+        # VAMAS exporters, e.g. "analyser pass energy  20.0" or
+        # "pass energy: 160".
+        _pe_re = re.compile(
+            r'(?:analyser\s+)?pass[_ ]?energy[\s=:]+([0-9]+(?:\.[0-9]*)?)',
+            re.IGNORECASE
+        )
+
         # Skip metadata and find number of points
         while i < len(lines) and i < start_idx + 200:  # Limit search
             line = lines[i].strip()
-            
+
             if self.debug and i < start_idx + 30:
                 print(f"      Line {i}: {repr(line[:60])}")
-            
+
             # Empty line
             if not line:
                 i += 1
                 continue
-            
+
             # Check if this is the next block
             if re.match(r'^[A-Z][a-z]?\s*\d[spdf]/\d+', line, re.IGNORECASE):
                 if self.debug:
                     print(f"      Found next block at line {i}")
                 break
-            
+
+            # Try to extract pass energy from a labelled metadata line
+            if 'pass_energy' not in metadata:
+                m = _pe_re.search(line)
+                if m:
+                    try:
+                        metadata['pass_energy'] = float(m.group(1))
+                        if self.debug:
+                            print(f"      pass_energy={metadata['pass_energy']} eV from: {line!r}")
+                    except ValueError:
+                        pass
+
             # Look for number of data points
             # Usually a line with just a number (typically 100-5000)
             if line.isdigit():
@@ -232,14 +251,14 @@ class VAMASParser(BaseParser):
                         print(f"      Found num_points: {num_points} at line {i}")
                     i += 1
                     continue
-            
+
             # Check if this looks like data (two numbers)
             if num_points is not None and self._is_data_line(line):
                 data_start = i
                 if self.debug:
                     print(f"      Data starts at line {i}")
                 break
-            
+
             i += 1
         
         if data_start is None:

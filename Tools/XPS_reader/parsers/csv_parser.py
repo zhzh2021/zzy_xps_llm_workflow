@@ -542,7 +542,16 @@ class EnhancedCSVParser(CSVParserMixin, BaseParser):
         try:
             content = ' '.join(lines[:100])
             matches = re.findall(REGION_PATTERN_STR, content)
-            return len(matches) > 1
+            if len(matches) > 1:
+                return True
+            # Also detect: >=1 XPS region token AND data rows have >=4 paired columns
+            # (e.g., Survey + F1s in a two-region export where Survey is not an XPS token)
+            if len(matches) >= 1:
+                for line in lines:
+                    values = self._parse_numeric_values(line)
+                    if values and len(values) >= 4:
+                        return True
+            return False
         except Exception:
             return False
     
@@ -640,6 +649,15 @@ class EnhancedCSVParser(CSVParserMixin, BaseParser):
                     region_row_idx = idx
                     region_columns = dict(sorted(names.items()))
                     break
+                # Single XPS region alongside non-XPS label (e.g., "Survey" + "F1s")
+                # Accept if at least 1 XPS token found and there are paired columns
+                if len(names) >= 1:
+                    # Check if data rows actually have enough columns for pairing
+                    sample_data = [r for r in rows[idx + 1:] if any(self._safe_float(c) is not None for c in r)]
+                    if sample_data and len(sample_data[0]) >= 4:
+                        region_row_idx = idx
+                        region_columns = dict(sorted(names.items()))
+                        break
                 # Special case: instrument headers with alternating blank columns (e.g., Li1s,,F1s,,...)
                 if not names and idx + 1 < len(rows):
                     condensed = [cell for cell in row if cell]

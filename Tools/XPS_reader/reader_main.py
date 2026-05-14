@@ -443,6 +443,30 @@ class BatchConverter:
 
         return all_regions
 
+    # ── Pre-aggregated CSV passthrough ────────────────────────────────────
+    _PRE_AGG_HEADER = "# Combined Spectra Export"
+    _PRE_AGG_FILENAME_RE = re.compile(
+        r'^aggregated_([A-Za-z][A-Za-z0-9]*)(?:_.*)?$', re.IGNORECASE
+    )
+
+    def _detect_pre_aggregated_csv(self, file_path: Path) -> Optional[str]:
+        """Return the region name if *file_path* is a pre-aggregated export CSV,
+        otherwise return None.  Detection is based on:
+        1. ``.csv`` extension
+        2. First non-empty line contains ``# Combined Spectra Export``
+        """
+        if file_path.suffix.lower() != '.csv':
+            return None
+        try:
+            with open(file_path, 'r', encoding='utf-8-sig', errors='ignore') as fh:
+                first_line = fh.readline()
+            if self._PRE_AGG_HEADER not in first_line:
+                return None
+            m = self._PRE_AGG_FILENAME_RE.match(file_path.stem)
+            return m.group(1) if m else file_path.stem
+        except Exception:
+            return None
+
     def convert_file(self, raw_file: Path, output_dir: Path,
                      auto_detect: bool = None,
                      specific_regions: List[str] = None) -> Dict[str, Path]:
@@ -929,11 +953,51 @@ class BatchConverter:
                                     })
                                     continue  # Skip this file
                             
+                            # ── Passthrough: pre-aggregated multi-sample CSV ──────────────
+                            pre_agg_region = self._detect_pre_aggregated_csv(raw_file)
+                            if pre_agg_region is not None:
+                                import shutil as _shutil
+                                region_dir = output_dir / pre_agg_region
+                                region_dir.mkdir(parents=True, exist_ok=True)
+                                dest = region_dir / raw_file.name
+                                _shutil.copy2(raw_file, dest)
+                                # Also keep a copy at the run-root for compatibility
+                                top_dest = output_dir / raw_file.name
+                                if not top_dest.exists():
+                                    _shutil.copy2(raw_file, top_dest)
+                                print(f"   ↪ Pre-aggregated CSV detected — copied directly to {pre_agg_region}/")
+                                if self.logger:
+                                    self.logger.log(
+                                        f"  ✅ Passthrough (pre-aggregated): {raw_file.name} → {pre_agg_region}"
+                                    )
+                                all_region_files.setdefault(pre_agg_region, []).append(dest)
+                                conversion_log.append({
+                                    'file': raw_file.name,
+                                    'regions': 1,
+                                    'region_names': pre_agg_region,
+                                    'status': 'Passthrough (pre-aggregated)',
+                                })
+                                continue  # Skip normal parser pipeline
+                            # ─────────────────────────────────────────────────────────────
+
                             # Import and extract regions without saving
                             spectra = self._import_and_extract_regions(
                                 raw_file, auto_detect, specific_regions
                             )
-                            
+
+                            # If use_filename_as_sample_name is set, override the internal
+                            # SPE/VGD sample name with the disk file stem so CSV column
+                            # headers reflect the user-visible filename, not instrument metadata.
+                            if self.proc.get('use_filename_as_sample_name', False):
+                                disk_name = self._sanitize_filename(raw_file.stem)
+                                for _spec_list in spectra.values():
+                                    for _spec in _spec_list:
+                                        _spec.name = disk_name
+                                        _meta = getattr(_spec, 'metadata', None)
+                                        if isinstance(_meta, dict):
+                                            _meta['source_file'] = disk_name
+                                            _meta['original_spectrum'] = disk_name
+
                             if self.logger:
                                 self.logger.log(f"  ✅ Extracted {len(spectra)} region(s): {', '.join(spectra.keys())}")
                             
@@ -1239,8 +1303,10 @@ def main():
     input_dir = Path(RAW_DATA_DIR)
     output_dir = Path(OUTPUT_DIR)
 
-    # Apply run tag subfolder when provided (e.g., 20260213150950)
+    # Apply run tag subfolder — always create a timestamped subdirectory so
+    # downstream tools (fitter, plotter) can locate this run unambiguously.
     run_id = os.environ.get("XPS_RUN_ID", "").strip()
+    run_tag = ""
     if run_id:
         if "_" in run_id:
             date_part, time_part = run_id.split("_", 1)
@@ -1258,8 +1324,11 @@ def main():
         else:
             digits = re.sub(r"\D", "", run_id)
             run_tag = digits[:14] if len(digits) >= 14 else ""
-        if run_tag:
-            output_dir = output_dir / run_tag
+    if not run_tag:
+        # No explicit run ID — generate a fresh timestamp so the fitter can
+        # discover this run via the latest-subdir fallback.
+        run_tag = datetime.now().strftime("%Y%m%d%H%M%S")
+    output_dir = output_dir / run_tag
 
     logging.debug(f"Input directory: {input_dir}")
     logging.debug(f"Output directory: {output_dir}")

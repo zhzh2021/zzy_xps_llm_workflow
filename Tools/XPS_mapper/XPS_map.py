@@ -1123,6 +1123,14 @@ def process_hyperspectral_map_simple(
         )
         if mcr_results:
             logger.info(f"MCR method: {mcr_results['method']}")
+            r2_val = mcr_results.get('r2_reconstruction', float('nan'))
+            rms_val = mcr_results.get('rms_error', float('nan'))
+            logger.info(f"MCR reconstruction quality: R²={r2_val:.4f}, RMS={rms_val:.4f}")
+            if mcr_results.get('fallback_used', False):
+                logger.warning(
+                    f"⚠️ NMF FALLBACK ACTIVE: MCR-ALS did not converge; NMF was used instead. "
+                    f"Quantitative atomic % should be interpreted with caution (R²={r2_val:.4f})."
+                )
             if mcr_results.get('auto_selected', False):
                 pca_var = mcr_results.get('pca_variance', [])
                 logger.info(f"PCA-guided selection: {mcr_results['n_components']} components explain {sum(pca_var)*100:.1f}% variance")
@@ -1256,7 +1264,18 @@ def process_hyperspectral_map_simple(
     if mcr_results:
         for i in range(mcr_results['conc_maps'].shape[2]):
             component_maps[f"MCR_Component_{i}"] = mcr_results['conc_maps'][:, :, i]
-    
+
+    # Build user-visible alert if NMF fallback was active
+    _mcr_fallback_alert = None
+    if mcr_results and mcr_results.get('fallback_used', False):
+        r2_val = mcr_results.get('r2_reconstruction', float('nan'))
+        _mcr_fallback_alert = (
+            "⚠️ NMF FALLBACK ACTIVE: MCR-ALS did not converge for this map. "
+            "NMF was used instead — quantitative atomic % and component maps "
+            f"should be interpreted with caution (reconstruction R²={r2_val:.4f}). "
+            "Consider adjusting max_iter or reviewing data quality."
+        )
+
     return {
         'cluster_results': cluster_results,
         'component_maps': component_maps,
@@ -1266,7 +1285,8 @@ def process_hyperspectral_map_simple(
         'mcr_results': mcr_results,
         'cluster_validation': cluster_validation_results,
         'cluster_masking': cluster_masking_result,
-        'variability_metrics': variability_metrics
+        'variability_metrics': variability_metrics,
+        'user_alert': _mcr_fallback_alert,
     }
 
 # ============================ Baseline functions (fallback if import fails) ============================

@@ -64,15 +64,27 @@ processing:
 # Energy calibration settings
 energy_calibration:
   enable: true
+
+  # Calibration strategy — choose one:
+  #   adventitious_carbon  (default) — C 1s AdC peak → target_binding_energy_ev
+  #   metallic_reference             — instrument metal foil (Au/Ag/Cu) → ISO 15472
+  #   fermi_edge                     — Fermi-edge fit → Ef = 0 eV (conducting samples)
+  #   known_peak                     — any region + user-supplied target BE
+  #   disable                        — no calibration; data used as-acquired
+  mode: "adventitious_carbon"
+
   reference_region: "C1s"
   target_binding_energy_ev: 284.8
   max_allowed_shift_ev: 5.0
-  
-  # Peak detection parameters
-  smooth_window_points: 7
-  smooth_poly_order: 2
-  min_prominence_fraction: 0.10
-  min_points_required: 20
+
+  # Options for metallic_reference mode
+  # Available regions: Au4f (83.96 eV), Ag3d (368.21 eV), Cu2p (932.62 eV),
+  #                    Si2p (99.30 eV), Ir4f (60.83 eV)  [NIST SRD 20 / ISO 15472]
+  metallic_reference_region: "Au4f"
+
+  # Options for fermi_edge mode
+  fermi_window_ev: 1.0        # ± eV around 0 eV to use for Fermi-edge fit
+  fermi_broadening_ev: 0.1    # initial guess for Gaussian broadening (eV)
 
 # Output settings
 output:

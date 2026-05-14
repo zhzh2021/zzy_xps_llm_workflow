@@ -82,15 +82,9 @@ LIST_PATTERNS = re.compile(
 SYSTEM_INSTRUCTION_BASE = """
 You are a controller for local python jobs/workflows. I will send you manifests of available experiments and tools.
 
-**XPS Data Triage Integration**:
-- XPS files are automatically analyzed to detect data type (standard_spectra vs map_2d/map_hyperspectral)
-- Triage routing: standard_spectra → XPS_reader workflow | map types → XPS_mapper workflow
-- When user provides file_path, triage runs automatically to determine correct workflow
-- You can reference triage results: data_type, confidence, nx/ny dimensions, region, energy_points
-
 Return ONLY a single JSON object with fields:
 {
-  "action": "run" | "clarify" | "none" | "execute" | "triage",
+  "action": "run" | "clarify" | "none" | "execute",
   "experiment": "<exp_name or empty string>",
   "args": { "<k>": <v>, ... },
   "message": "<short user-facing explanation/answer>",
@@ -98,14 +92,17 @@ Return ONLY a single JSON object with fields:
 }
 
 Guidelines:
-- "run": Use when you are confident which experiment to execute AND you have all required args.
-- "clarify": Use when the user intent maps to an experiment but required details/args are missing.
-  * In "message", list EXACTLY which args are missing by name.
-- "none": Provide a concise, direct answer in "message" when the user asks a general question or no experiment applies.
-- "execute": Provide a small, safe, self-contained script in "script.code" with "language" set to "python" or "powershell".
-- "triage": Use when user asks to analyze/detect XPS file type. Requires file_path in args.
+- "run": Use when a named experiment clearly covers the request. Use empty args {} if the user hasn't specified a path — the system will use the current project folder.
+  Map/hyperspectral/PCA/MCR requests are handled by tool_real_xps_workflow — always use "run" for these.
+- "clarify": Use ONLY when the user's intent is too vague to identify which tool or operation to perform.
+  Examples that REQUIRE clarify: "Run the analysis.", "Process the data.", "Do the thing." — no tool can be identified.
+  Examples that do NOT require clarify: "Fit the Fe2p spectra.", "Show peak plots.", "I need atomic concentrations." — tool is clear, use "run".
+  * In "message", ask one focused question about what is unclear.
+  * Do NOT use "clarify" for general knowledge questions.
+- "none": Use when the user asks a general/factual question (e.g. "What does X do?", "What formats are supported?").
+  Provide a direct answer in "message". No experiment is needed.
+- "execute": ONLY when no named experiment covers the request at all. Never write a script to do what a named tool already does.
 - Never include additional keys. Never include markdown or code fences.
-- If "run" but required args are missing, choose "clarify" instead.
 """.strip()
 
 SYSTEM_INSTRUCTION_WORKFLOW = """
@@ -214,30 +211,13 @@ class ExperimentRouter:
             sys_prompt_path = Path(__file__).resolve().parent / "system_prompt.md"
             sci_policy = sys_prompt_path.read_text(encoding="utf-8", errors="ignore").strip()
             if sci_policy:
-                system_content += "\n\nTool-Calling Policy (for reference):\n" + sci_policy
+                system_content += "\n\n### MANDATORY Tool-Calling Policy (follow exactly):\n" + sci_policy
         except Exception:
             pass
 
-        # Append available tools from Tools/_workflow.json if present
-        try:
-            tools_dir = TOOLS_DIR
-            wf_path = tools_dir / "_workflow.json"
-            tools_list = []
-            if wf_path.exists():
-                wf = _json.loads(wf_path.read_text(encoding="utf-8", errors="ignore"))
-                for step in wf.get("steps", []):
-                    t = step.get("tool")
-                    if t:
-                        tools_list.append({
-                            "tool": t,
-                            "args": step.get("args", {}),
-                            "step": step.get("step", "")
-                        })
-            tools_list = [dict(t) for t in {tuple(sorted(d.items())): d for d in tools_list}.values()]
-            if tools_list:
-                system_content += "\n\nAvailable tools (from Tools/_workflow.json):\n" + _json.dumps(tools_list, indent=2)
-        except Exception:
-            pass
+        # _workflow.json injection disabled: it contains legacy tool names that
+        # conflict with _manifest.json. The manifest is injected per-query instead.
+        # tools_list injection removed intentionally.
         if self.embed_manifest_in_system:
             manifest = build_manifest()
             system_content = (
@@ -247,11 +227,21 @@ class ExperimentRouter:
             )
 
         self.system_msg = SystemMessage(content=system_content)
+        _json_schema = {
+            "type": "object",
+            "properties": {
+                "action":     {"type": "string", "enum": ["run", "clarify", "none", "execute"]},
+                "experiment": {"type": "string"},
+                "args":       {"type": "object"},
+                "message":    {"type": "string"}
+            },
+            "required": ["action", "experiment", "args", "message"]
+        }
         self.llm = ChatOllama(
             model=model,
             temperature=temperature,
             num_ctx=num_ctx,
-            model_kwargs={"format": "json"},
+            format=_json_schema,
         )
 
     def decide(
